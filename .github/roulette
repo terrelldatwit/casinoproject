@@ -64,12 +64,12 @@ def play_game():
                 #Ask how much the user wants to bet
                 bet_amount = int(input("Enter your bet amount: "))
 
-                #Add bet amount to total bet amount
-                tot_bet_money += bet_amount
-
 
                 #Check that the bet is within balance
                 if 1 <= bet_amount <= balance:
+
+                    #Add bet amount to total bet amount
+                    tot_bet_money += bet_amount
                     break
 
                 #Invalid amount
@@ -298,3 +298,5 @@ def play_game():
 if __name__ == "__main__":
     
     play_game()
+
+
