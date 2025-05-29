@@ -1,0 +1,300 @@
+
+#Import the random module to simulate the roulette spin
+import random
+
+#Main function to run the roulette game
+def play_game():
+
+    #Initialize player balance at $10
+    balance = 10
+
+    #Initialize win count to 0
+    winner = 0;
+
+    #Initialize loss count to 0
+    loser = 0;
+
+    #Initialize win/loss percentage to 0
+
+    wl = 0;
+
+    #Initialize total bets played count to 0
+    tot_bet_played = 0;
+
+    #Initialize total betted money count to 0
+    tot_bet_money = 0;
+
+
+    #Set is created for the numbers associated with red
+    red = {1, 3, 5, 7, 9, 1, 2, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36}
+
+    #Set is created for the numbers associated with black
+    black = {2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35}
+
+    #Set is created for the number associated with green
+    green = { 0 }
+
+
+    #Welcome and instructions
+    print("Welcome to the Roulette Game!")
+    
+    print("You start with $10. Bet on a number (0-36), even/odd, or ranges: 1-12, 13-24, 25-36.")
+
+    
+    #Continue the game while the player has money
+    while balance > 0:
+
+        #Display current player stats
+        print(f"\nCurrent balance: ${balance}")
+
+        print(f"Roulette wins: {winner}")
+
+        print(f"Roulette losses: {loser}")
+
+        print(f"Roulette win percentage: {wl}%")
+
+        print(f"Total bets played: {tot_bet_played}")
+
+        print(f"Total money betted: {tot_bet_money}")
+        
+        #Prompt user for valid bet amount
+        while True:
+
+            try:
+                #Ask how much the user wants to bet
+                bet_amount = int(input("Enter your bet amount: "))
+
+                #Add bet amount to total bet amount
+                tot_bet_money += bet_amount
+
+
+                #Check that the bet is within balance
+                if 1 <= bet_amount <= balance:
+                    break
+
+                #Invalid amount
+                else:
+                    print("Bet must be at least $1 and no more than your current balance.")
+
+            #Handle non-integer input
+            except ValueError:
+                print("Invalid input. Please enter a whole number.")
+
+        
+        #Show bet type options
+        print("\nBet types:")
+        
+        print("- Enter a number between 0-36")
+        
+        print("- 'even' or 'odd'")
+        
+        print("- '1-12', '13-24', or '25-36'")
+
+        print("- 'red', 'black' or 'green' ")
+
+        #Get the user's bet choice
+        bet_choice = input("Place your bet: ").strip().lower()
+
+        
+        #Spin the roulette wheel
+        rolled = random.randint(0, 36)
+
+        #Show the result of the spin
+        print(f"\nRoulette rolled: {rolled}")
+
+        #Preset all checks to zero
+        red_check = 0
+
+        black_check = 0
+
+        green_check = 0
+
+        #Check if value generated is the same as a value that is associated with red 
+        if rolled in red:
+            red_check = 1;
+
+        #Check if value generated is the same as a value that is associated with black 
+        if rolled in black:
+             black_check = 1;
+
+
+        #Check if value generated is the same as a value that is associated with green
+        if rolled in green:
+             green_check = 1;
+
+
+
+        
+        #Initialize win status and payout
+        win = False
+        
+        payout = 0
+
+        
+        #If user bet on a specific number
+        if bet_choice.isdigit():
+
+            #Convert to integer
+            chosen_number = int(bet_choice)
+
+            #Check if number is valid and matches the roll
+            if 0 <= chosen_number <= 36:
+
+                if chosen_number == rolled:
+                    win = True
+                    payout = bet_amount * 36
+
+        
+        #If user bet on even
+        elif bet_choice == "even" and rolled != 0:
+
+            if rolled % 2 == 0:
+                win = True
+                payout = bet_amount * 2
+
+        
+        #If user bet on odd
+        elif bet_choice == "odd" and rolled != 0:
+
+            if rolled % 2 == 1:
+                win = True
+                payout = bet_amount * 2
+
+        
+        #If user bet on range 1-12
+        elif bet_choice == "1-12":
+
+            if 1 <= rolled <= 12:
+                win = True
+                payout = bet_amount * 3
+
+        
+        #If user bet on range 13-24
+        elif bet_choice == "13-24":
+
+            if 13 <= rolled <= 24:
+                win = True
+                payout = bet_amount * 3
+
+        
+        #If user bet on range 25-36
+        elif bet_choice == "25-36":
+
+            if 25 <= rolled <= 36:
+                win = True
+                payout = bet_amount * 3
+        
+        #If user bet on red
+        elif bet_choice == "red":
+
+            if  red_check == 1:
+                win = True
+                payout = bet_amount * 2
+
+        #If user bet on black
+        elif bet_choice == "black":
+
+            if  black_check == 1:
+                win = True
+                payout = bet_amount * 2
+
+       
+        #If user bet on green
+        elif bet_choice == "green":
+
+            if  green_check == 1:
+                win = True
+                payout = bet_amount * 36
+
+
+        
+        #Outcome if user wins
+        if win:
+
+            #Update balance with winnings
+            balance += payout - bet_amount
+
+            #Add one to win counter
+            winner += 1
+
+            #Add one to bets played counter
+            tot_bet_played += 1
+
+            #Calculate win/loss percentage
+            wl = (winner / tot_bet_played) * 100
+
+            #Show win message
+            print(f"Congratulations! You won ${payout - bet_amount}. Your new balance is ${balance}.")
+
+            print(f"Roulette wins: {winner}")
+
+            print(f"Roulette losses: {loser}")
+
+            print(f"Roulette win percentage: {wl}%")
+
+            print(f"Total bets played: {tot_bet_played}")
+
+            print(f"Total money betted: {tot_bet_money}")
+
+        #Outcome if user loses
+        else:
+
+            #Subtract bet amount from balance
+            balance -= bet_amount
+
+            #Add one to loss counter
+            loser += 1
+
+            #Add one to bets played counter
+            tot_bet_played += 1
+
+            #Calculate win/loss percentage
+            wl = (winner / tot_bet_played) * 100
+
+
+            #Show loss message
+            print(f"Sorry, you lost ${bet_amount}. Your new balance is ${balance}.")
+
+            print(f"Roulette wins: {winner}")
+
+            print(f"Roulette losses: {loser}")
+
+            print(f"Roulette win percentage: {wl}%")
+
+            print(f"Total bets played: {tot_bet_played}")
+
+            print(f"Total money betted: {tot_bet_money}")
+
+
+        
+        #Check for game over
+        if balance == 0:
+            print("You're out of money. Game over.")
+
+            print(f"Roulette wins: {winner}")
+
+            print(f"Roulette losses: {loser}")
+
+            print(f"Roulette win/loss percentage is: {wl}%")
+
+            print(f"Total bets played: {tot_bet_played}")
+
+            print(f"Total money betted: {tot_bet_money}")
+
+
+            break
+
+        
+        #Ask if the user wants to continue playing
+        cont = input("Do you want to continue? (yes/no): ").strip().lower()
+
+        #End the game if they choose not to continue
+        if cont not in ["yes", "y"]:
+            print("Thanks for playing!")
+            break
+
+
+#Run the game when the script is executed
+if __name__ == "__main__":
+    
+    play_game()
