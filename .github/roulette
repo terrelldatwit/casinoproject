@@ -1,6 +1,7 @@
-#HAS GUI
+from sqlite3 import Cursor
 import sys  
 import random
+import sqlite3
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton, QLineEdit,
@@ -9,6 +10,11 @@ from PyQt6.QtWidgets import (
 
 from PyQt6.QtCore import Qt
 
+#Database
+database = sqlite3.connect(r"C:\Users\Anthony Magliozzi\OneDrive - Wentworth Institute of Technology\Applied_Programming_Concepts\Projects\APC_Casino_Project\Casino_GUI_Test\CasinoDB.db")
+cursor = database.cursor() 
+
+cursor.execute("""INSERT OR IGNORE INTO Roulette VALUES( 0, 0, 0, 0, 0);""")
 
 class CasinoGame(QWidget):
     def __init__(self):
@@ -16,7 +22,7 @@ class CasinoGame(QWidget):
         self.setWindowTitle("Roulette Game")
         self.setGeometry(100, 100, 800, 700)
 
-        #Initialize game state
+        #Initialize the player's stats
         self.balance = 20000000
         self.winner = 0
         self.loser = 0
@@ -80,7 +86,9 @@ class CasinoGame(QWidget):
             "#E91E63",  # pink for 5000
             "#8BC34A"   # lime green for 10000
         ]
+
         chip_layout = QGridLayout()
+
         for index, value in enumerate(chip_values):
             chip_button = QPushButton(f"${value}")
             chip_button.setFixedSize(60, 60)
@@ -142,8 +150,10 @@ class CasinoGame(QWidget):
         #Set background color if applicable
         if color == "red":
             button.setStyleSheet("background-color: red; color: white; border: 1px solid black;")
+        
         elif color == "black":
             button.setStyleSheet("background-color: black; color: white; border: 1px solid black;")
+        
         elif color == "green":
             button.setStyleSheet("background-color: green; color: white; border: 1px solid black;")
 
@@ -244,16 +254,22 @@ class CasinoGame(QWidget):
             self.winner += 1
             self.r_tot_won += payout - bet_amount
             result = f"You WON ${payout - bet_amount}!"
+            cursor.execute("""UPDATE Roulette SET wins = ? WHERE number_of_bets = 0""",(self.winner,))
 
         else:
             self.balance -= bet_amount
             self.loser += 1
             self.r_tot_loss += bet_amount
             result = f"You LOST ${bet_amount}."
+            cursor.execute("""UPDATE Roulette SET losses = ? WHERE number_of_bets = 0""",(self.loser,))
 
         #Win percentage calculation
         if self.tot_bet_played > 0:
             self.wl = (self.winner * 100) / self.tot_bet_played
+
+
+
+        
 
         #Update interface
         self.balance_label.setText(f"Player Balance: ${self.balance}")
@@ -262,7 +278,13 @@ class CasinoGame(QWidget):
             f"Wins: {self.winner} | Losses: {self.loser} | Win %: {self.wl:.2f}%\n"
             f"Total Number of Bets: {self.tot_bet_played} | Bet Total: ${self.tot_bet_money}\n"
             f"Total Roulette Winnings: ${self.r_tot_won} | Total Roulette Losses: ${self.r_tot_loss}"
+
+
+            
         )
+        
+        #
+        
 
         #Clear input fields after each spin
         self.bet_amount_input.clear()
@@ -280,4 +302,3 @@ if __name__ == "__main__":
     window = CasinoGame()
     window.show()
     sys.exit(app.exec())
-
