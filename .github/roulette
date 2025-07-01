@@ -257,6 +257,7 @@ class CasinoGame(QWidget):
             self.r_tot_won += payout - bet_amount
             result = f"You WON ${payout - bet_amount}!"
             cursor.execute("""UPDATE Roulette SET wins = ? WHERE number_of_bets = 0""",(self.winner,))
+            cursor.execute("""UPDATE Roulette SET money_won = ? WHERE number_of_bets = 0""", (self.r_tot_won,))
             database.commit()
 
         else:
@@ -265,6 +266,7 @@ class CasinoGame(QWidget):
             self.r_tot_loss += bet_amount
             result = f"You LOST ${bet_amount}."
             cursor.execute("""UPDATE Roulette SET losses = ? WHERE number_of_bets = 0""",(self.loser,))
+            cursor.execute("""UPDATE Roulette SET money_lost = ? WHERE number_of_bets = 0""",(bet_amount,))
             database.commit() 
 
         #Win percentage calculation
