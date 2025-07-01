@@ -10,35 +10,45 @@ from PyQt6.QtWidgets import (
 
 from PyQt6.QtCore import Qt
 
-# Database (FIXED: raw string to prevent unicodeescape error)
+#Database 
 conn = sqlite3.connect(r"C:\Users\Anthony Magliozzi\OneDrive - Wentworth Institute of Technology\Applied_Programming_Concepts\Projects\Casino_Sim_100\CasinoDB.db")
+#Create a cursor to execute SQL commands
 cursor = conn.cursor()
 
+#Define the main class for the Roulette game GUI
 class CasinoGame(QWidget):
+
+#Initialize the GUI layout and player stats
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Roulette Game")
         self.setGeometry(100, 100, 800, 700)
 
-        # Initialize the player's stats
+#Initialize the player's stats
+#Initialize player balance and tracking variables
         self.balance = 20000000
         self.winner = 0
         self.loser = 0
         self.wl = 0
         self.tot_bet_played = 0
+
+#Update total bet statistics
         self.tot_bet_money = 0
         self.r_tot_won = 0
         self.r_tot_loss = 0
 
-        # Roulette colors
+#Roulette colors
+#Define sets for red, black, and green numbers on roulette wheel
         self.red = {1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36}
         self.black = {2, 4, 6, 8, 10, 11, 13, 15, 17, 20, 22, 24, 26, 28, 29, 31, 33, 35}
         self.green = {0}
 
-        # GUI layout
+#GUI layout
+#Create the main vertical layout for the GUI
         main_layout = QVBoxLayout()
 
-        # Inputs
+#Inputs
+#Display the player's balance at the top
         self.balance_label = QLabel(f"Player Balance: ${self.balance}")
         self.bet_help_label = QLabel("Place Bet Amount by Clicking on Displayed Values<br>or Enter a Value in the Text box")
         self.bet_help_label.setTextFormat(Qt.TextFormat.RichText)
@@ -48,10 +58,13 @@ class CasinoGame(QWidget):
         self.bet_directions_label.setTextFormat(Qt.TextFormat.RichText)
         self.bet_directions_label.setStyleSheet("QLabel { line-height: 115%; margin: 0px; padding: 0px; }")
 
+#Text field for entering bet amount
         self.bet_amount_input = QLineEdit()
         self.bet_amount_input.setPlaceholderText("Enter bet amount (e.g., 5)")
         self.bet_type_input = QLineEdit()
         self.bet_type_input.setPlaceholderText("Enter bet (e.g., 17, red, 1-12, even)")
+
+#Button to start a spin round
         self.spin_button = QPushButton("Spin")
         self.spin_button.clicked.connect(self.play_spin)
 
@@ -65,7 +78,8 @@ class CasinoGame(QWidget):
         main_layout.addWidget(self.bet_directions_label)
         main_layout.addLayout(input_layout)
 
-        # Chips
+#Chips
+#Define chip values and their corresponding colors for display
         chip_values = [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000]
         chip_colors = [
             "#2196F3", "#4CAF50", "#9C27B0", "#F44336", "#FF9800",
@@ -74,6 +88,8 @@ class CasinoGame(QWidget):
         ]
 
         chip_layout = QGridLayout()
+
+#Create clickable chip buttons for betting
         for index, value in enumerate(chip_values):
             chip_button = QPushButton(f"${value}")
             chip_button.setFixedSize(60, 60)
@@ -86,8 +102,10 @@ class CasinoGame(QWidget):
 
         main_layout.addLayout(chip_layout)
 
-        # Roulette grid
+#Roulette grid
         self.table_grid = QGridLayout()
+
+#Construct the roulette board layout
         self.build_roulette_grid()
         main_layout.addLayout(self.table_grid)
 
@@ -97,9 +115,10 @@ class CasinoGame(QWidget):
 
         self.setLayout(main_layout)
 
-        # Run simulation of 100 games on startup
+#Run simulation of 100 games on startup
         self.simulate_100_games()
 
+#Add all number and category buttons to the board grid
     def build_roulette_grid(self):
         self.add_table_cell("0", 0, 0, color="green")
         numbers = [
@@ -120,6 +139,7 @@ class CasinoGame(QWidget):
         self.add_table_cell("Black", 4, 5, colspan=2, color="black")
         self.add_table_cell("Red", 4, 7, colspan=2, color="red")
 
+#Create each cell in the roulette grid
     def add_table_cell(self, text, row, col, color=None, colspan=1):
         button = QPushButton(text)
         button.setFixedHeight(40)
@@ -133,12 +153,15 @@ class CasinoGame(QWidget):
         button.clicked.connect(lambda: self.handle_bet_selection(text.lower()))
         self.table_grid.addWidget(button, row, col, 1, colspan)
 
+#Set the bet type input when a board cell is clicked
     def handle_bet_selection(self, bet_text):
         self.bet_type_input.setText(bet_text)
 
+#Set the bet amount when a chip is clicked
     def select_chip_amount(self, amount):
         self.bet_amount_input.setText(str(amount))
 
+#Handle the game logic for a single roulette spin
     def play_spin(self):
         try:
             bet_amount = float(self.bet_amount_input.text())
@@ -153,6 +176,7 @@ class CasinoGame(QWidget):
             QMessageBox.warning(self, "Invalid Input", "Enter a bet type (number, red, black, etc.)")
             return
 
+#Simulate the roulette spin outcome
         rolled = random.randint(0, 36)
         win = False
         payout = 0
@@ -189,22 +213,33 @@ class CasinoGame(QWidget):
             win = True
             payout = bet_amount * 35
 
+#Update total bet statistics
         self.tot_bet_money += bet_amount
         self.tot_bet_played += 1
 
+#Log bet to the database if not already present
         cursor.execute("""INSERT OR IGNORE INTO Roulette VALUES(0, 0, ?, 0, 0);""", (bet_amount,))
 
         if win:
             self.balance += payout - bet_amount
             self.winner += 1
             self.r_tot_won += payout - bet_amount
+
+#Update player's game outcome in the database
             cursor.execute("""UPDATE Roulette SET wins = ? WHERE number_of_bets = 0""", (self.winner,))
+
+#Update player's game outcome in the database
             cursor.execute("""UPDATE Roulette SET money_won = ? WHERE number_of_bets = 0""", (self.r_tot_won,))
+        
         else:
             self.balance -= bet_amount
             self.loser += 1
             self.r_tot_loss += bet_amount
+
+#Update player's game outcome in the database
             cursor.execute("""UPDATE Roulette SET losses = ? WHERE number_of_bets = 0""", (self.loser,))
+
+#Update player's game outcome in the database
             cursor.execute("""UPDATE Roulette SET money_lost = ? WHERE number_of_bets = 0""", (self.r_tot_loss,))
 
         conn.commit()
@@ -216,6 +251,8 @@ class CasinoGame(QWidget):
         self.output_label.setText(
             f"Rolled: {rolled}\n{'You WON' if win else 'You LOST'}\n"
             f"Wins: {self.winner} | Losses: {self.loser} | Win %: {self.wl:.2f}%\n"
+
+#Update total bet statistics
             f"Total Number of Bets: {self.tot_bet_played} | Bet Total: ${self.tot_bet_money}\n"
             f"Total Roulette Winnings: ${self.r_tot_won} | Total Roulette Losses: ${self.r_tot_loss}"
         )
@@ -227,8 +264,11 @@ class CasinoGame(QWidget):
             QMessageBox.information(self, "Game Over", "You're out of money. Game over.")
             self.spin_button.setEnabled(False)
 
+#Run 100 roulette games automatically using random bets
     def simulate_100_games(self):
         bet_options = ["even", "odd", "red", "black", "green", "1-12", "13-24", "25-36"] + [str(i) for i in range(0, 37)]
+
+#Define chip values and their corresponding colors for display
         chip_values = [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000]
 
         for _ in range(100):
@@ -245,7 +285,8 @@ class CasinoGame(QWidget):
             self.bet_type_input.setText(str(bet_choice))
             self.play_spin()
 
-# Entry point
+#Entry point
+#Launch the GUI application
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = CasinoGame()
