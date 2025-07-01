@@ -11,10 +11,8 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 
 #Database
-database = sqlite3.connect(r"C:\Users\Anthony Magliozzi\OneDrive - Wentworth Institute of Technology\Applied_Programming_Concepts\Projects\APC_Casino_Project\Casino_GUI_Test\CasinoDB.db")
+database = sqlite3.connect(r"C:\Users\Anthony Magliozzi\OneDrive - Wentworth Institute of Technology\Applied_Programming_Concepts\Projects\Casino_W_GUI\CasinoDB.db")
 cursor = database.cursor() 
-
-#cursor.execute("""INSERT OR IGNORE INTO Roulette VALUES( 0, 0, 0, 0, 0);""")
 
 class CasinoGame(QWidget):
     def __init__(self):
@@ -42,13 +40,13 @@ class CasinoGame(QWidget):
 
         #Inputs
         self.balance_label = QLabel(f"Player Balance: ${self.balance}")
-        self.bet_help_label = QLabel("Place Bet Amount by Clicking on Displayed Values<br>or Enter a Value in the Text box") #Instruction for bet amount
-        self.bet_help_label.setTextFormat(Qt.TextFormat.RichText) #Formatting for line break
-        self.bet_help_label.setStyleSheet("QLabel { line-height: 115%; margin: 0px; padding: 0px; }") #Match Word spacing
+        self.bet_help_label = QLabel("Place Bet Amount by Clicking on Displayed Values<br>or Enter a Value in the Text box")
+        self.bet_help_label.setTextFormat(Qt.TextFormat.RichText)
+        self.bet_help_label.setStyleSheet("QLabel { line-height: 115%; margin: 0px; padding: 0px; }")
 
-        self.bet_directions_label = QLabel("Place Bet Type by Clicking on Displayed Values<br>or Enter a Value in the Text box") #Instruction for bet type
-        self.bet_directions_label.setTextFormat(Qt.TextFormat.RichText) #Formatting for line break
-        self.bet_directions_label.setStyleSheet("QLabel { line-height: 115%; margin: 0px; padding: 0px; }") #Match Word spacing
+        self.bet_directions_label = QLabel("Place Bet Type by Clicking on Displayed Values<br>or Enter a Value in the Text box")
+        self.bet_directions_label.setTextFormat(Qt.TextFormat.RichText)
+        self.bet_directions_label.setStyleSheet("QLabel { line-height: 115%; margin: 0px; padding: 0px; }")
 
         self.bet_amount_input = QLineEdit()
         self.bet_amount_input.setPlaceholderText("Enter bet amount (e.g., 5)")
@@ -67,28 +65,15 @@ class CasinoGame(QWidget):
         main_layout.addWidget(self.bet_directions_label)
         main_layout.addLayout(input_layout)
 
-        
-
-
         #Chip selection layout
         chip_values = [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000]
         chip_colors = [
-            "#2196F3",  # blue for 1
-            "#4CAF50",  # green for 5
-            "#9C27B0",  # violet for 10
-            "#F44336",  # red for 25
-            "#FF9800",  # orange for 50
-            "#B2DFDB",  # teal (was 0.50) now used for 100
-            "#FFC107",  # amber for 250
-            "#673AB7",  # purple for 500
-            "#FFEB3B",  # yellow for 1000
-            "#00BCD4",  # cyan for 2500
-            "#E91E63",  # pink for 5000
-            "#8BC34A"   # lime green for 10000
+            "#2196F3", "#4CAF50", "#9C27B0", "#F44336", "#FF9800",
+            "#B2DFDB", "#FFC107", "#673AB7", "#FFEB3B", "#00BCD4",
+            "#E91E63", "#8BC34A"
         ]
 
         chip_layout = QGridLayout()
-
         for index, value in enumerate(chip_values):
             chip_button = QPushButton(f"${value}")
             chip_button.setFixedSize(60, 60)
@@ -96,17 +81,15 @@ class CasinoGame(QWidget):
                 f"border-radius: 30px; border: 2px solid black; background-color: {chip_colors[index]};"
                 "font-weight: bold; color: black;"
             )
-            chip_button.clicked.connect(lambda checked, v=value: self.select_chip_amount(v))  #Connect chip click
+            chip_button.clicked.connect(lambda checked, v=value: self.select_chip_amount(v))
             chip_layout.addWidget(chip_button, index // 6, index % 6)
 
         main_layout.addLayout(chip_layout)
 
-        #Table layout
         self.table_grid = QGridLayout()
         self.build_roulette_grid()
         main_layout.addLayout(self.table_grid)
 
-        #Output label
         self.output_label = QLabel("Player place your bet and spin the wheel!")
         self.output_label.setWordWrap(True)
         main_layout.addWidget(self.output_label)
@@ -114,21 +97,17 @@ class CasinoGame(QWidget):
         self.setLayout(main_layout)
 
     def build_roulette_grid(self):
-
-        #Build visual grid layout for roulette table using clickable buttons
         self.add_table_cell("0", 0, 0, color="green")
         numbers = [
             [3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36],
             [2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35],
             [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34]
         ]
-
         for row, nums in enumerate(numbers):
             for col, num in enumerate(nums):
                 color = "red" if num in self.red else "black" if num in self.black else "green"
                 self.add_table_cell(str(num), row, col + 1, color)
 
-        #Special bet labels
         self.add_table_cell("1-12", 3, 1, colspan=4)
         self.add_table_cell("13-24", 3, 5, colspan=4)
         self.add_table_cell("25-36", 3, 9, colspan=4)
@@ -136,173 +115,119 @@ class CasinoGame(QWidget):
         self.add_table_cell("Odd", 4, 3, colspan=2)
         self.add_table_cell("Black", 4, 5, colspan=2, color="black")
         self.add_table_cell("Red", 4, 7, colspan=2, color="red")
-        
-        
-       
 
     def add_table_cell(self, text, row, col, color=None, colspan=1):
-
-        #Create a clickable button for each cell
         button = QPushButton(text)
         button.setFixedHeight(40)
         button.setStyleSheet("border: 1px solid black; font-weight: bold;")
-
-        #Set background color if applicable
         if color == "red":
             button.setStyleSheet("background-color: red; color: white; border: 1px solid black;")
-        
         elif color == "black":
             button.setStyleSheet("background-color: black; color: white; border: 1px solid black;")
-        
         elif color == "green":
             button.setStyleSheet("background-color: green; color: white; border: 1px solid black;")
-
-        #Connect button to update bet type input
         button.clicked.connect(lambda: self.handle_bet_selection(text.lower()))
-
         self.table_grid.addWidget(button, row, col, 1, colspan)
 
     def handle_bet_selection(self, bet_text):
-
-        #Fill the bet type input box when a cell is clicked
         self.bet_type_input.setText(bet_text)
 
     def select_chip_amount(self, amount):
-
-        #Fill the bet amount input box when a chip is clicked
         self.bet_amount_input.setText(str(amount))
 
     def play_spin(self):
-
-        #Read and validate bet amount
         try:
             bet_amount = float(self.bet_amount_input.text())
-
             if bet_amount < 1 or bet_amount > self.balance:
                 raise ValueError()
-
         except ValueError:
             QMessageBox.warning(self, "Invalid Input", "Enter a valid bet amount within your balance.")
             return
 
-        #Read bet type
         bet_choice = self.bet_type_input.text().strip().lower()
-
         if not bet_choice:
             QMessageBox.warning(self, "Invalid Input", "Enter a bet type (number, red, black, etc.)")
             return
 
-        rolled = random.randint(0, 36)  #Simulate roulette spin
+        rolled = random.randint(0, 36)
         win = False
         payout = 0
 
-        #Check color
         red_check = rolled in self.red
         black_check = rolled in self.black
         green_check = rolled in self.green
 
-        #Straight number bet
         if bet_choice.isdigit() and int(bet_choice) == rolled:
             win = True
             payout = bet_amount * 36
-
-        #Even bet
         elif bet_choice == "even" and rolled != 0:
-            if (rolled / 2) == (rolled // 2):  #Even check
+            if rolled % 2 == 0:
                 win = True
                 payout = bet_amount * 2
-
-        #Odd bet
         elif bet_choice == "odd":
-            if (rolled / 2) != (rolled // 2):  #Odd check
+            if rolled % 2 != 0:
                 win = True
                 payout = bet_amount * 2
-
-        #Dozen ranges
         elif bet_choice == "1-12" and 1 <= rolled <= 12:
             win = True
             payout = bet_amount * 3
-
         elif bet_choice == "13-24" and 13 <= rolled <= 24:
             win = True
             payout = bet_amount * 3
-
         elif bet_choice == "25-36" and 25 <= rolled <= 36:
             win = True
             payout = bet_amount * 3
-
-        #Color bet checks
         elif bet_choice == "red" and red_check:
             win = True
             payout = bet_amount * 2
-
         elif bet_choice == "black" and black_check:
             win = True
             payout = bet_amount * 2
-
         elif bet_choice == "green" and green_check:
             win = True
             payout = bet_amount * 35
 
-        #Update totals
         self.tot_bet_money += bet_amount
         self.tot_bet_played += 1
 
-        cursor.execute("""INSERT OR IGNORE INTO Roulette VALUES( 0, 0, ?, 0, 0);""")
+        cursor.execute("""INSERT OR IGNORE INTO Roulette VALUES(0, 0, ?, 0, 0);""", (bet_amount,))
 
-        #Update stats
         if win:
             self.balance += payout - bet_amount
             self.winner += 1
             self.r_tot_won += payout - bet_amount
             result = f"You WON ${payout - bet_amount}!"
-            cursor.execute("""UPDATE Roulette SET wins = ? WHERE number_of_bets = 0""",(self.winner,))
+            cursor.execute("""UPDATE Roulette SET wins = ? WHERE number_of_bets = 0""", (self.winner,))
             cursor.execute("""UPDATE Roulette SET money_won = ? WHERE number_of_bets = 0""", (self.r_tot_won,))
             database.commit()
-
         else:
             self.balance -= bet_amount
             self.loser += 1
             self.r_tot_loss += bet_amount
             result = f"You LOST ${bet_amount}."
-            cursor.execute("""UPDATE Roulette SET losses = ? WHERE number_of_bets = 0""",(self.loser,))
-            cursor.execute("""UPDATE Roulette SET money_lost = ? WHERE number_of_bets = 0""",(bet_amount,))
-            database.commit() 
+            cursor.execute("""UPDATE Roulette SET losses = ? WHERE number_of_bets = 0""", (self.loser,))
+            cursor.execute("""UPDATE Roulette SET money_lost = ? WHERE number_of_bets = 0""", (bet_amount,))
+            database.commit()
 
-        #Win percentage calculation
         if self.tot_bet_played > 0:
             self.wl = (self.winner * 100) / self.tot_bet_played
 
-
-
-        
-
-        #Update interface
         self.balance_label.setText(f"Player Balance: ${self.balance}")
         self.output_label.setText(
             f"Rolled: {rolled}\n{result}\n"
             f"Wins: {self.winner} | Losses: {self.loser} | Win %: {self.wl:.2f}%\n"
             f"Total Number of Bets: {self.tot_bet_played} | Bet Total: ${self.tot_bet_money}\n"
             f"Total Roulette Winnings: ${self.r_tot_won} | Total Roulette Losses: ${self.r_tot_loss}"
-
-
-            
         )
-        
-        #
-        
 
-        #Clear input fields after each spin
         self.bet_amount_input.clear()
         self.bet_type_input.clear()
 
-        #Game over check
         if self.balance <= 0:
             QMessageBox.information(self, "Game Over", "You're out of money. Game over.")
             self.spin_button.setEnabled(False)
 
-
-#Entry point
+# Entry point
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = CasinoGame()
