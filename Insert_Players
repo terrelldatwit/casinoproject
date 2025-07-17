@@ -1,0 +1,67 @@
+import sqlite3
+import random
+
+def update_players_table():
+    # Connect to the CasinoDB
+    conn = sqlite3.connect("CasinoDB.db")
+    cursor = conn.cursor()
+
+    # Step 1: Rename "balence" column to "balance"
+    cursor.execute("ALTER TABLE PLAYERS RENAME TO PLAYERS_OLD")
+
+    # Create the corrected PLAYERS table
+    cursor.execute("""
+    CREATE TABLE PLAYERS (
+        ID INTEGER PRIMARY KEY,
+        first_name TEXT,
+        last_name TEXT,
+        balance REAL DEFAULT 0,
+        winnings REAL DEFAULT 0,
+        Won INTEGER DEFAULT 0,
+        Lost INTEGER DEFAULT 0,
+        Bets INTEGER DEFAULT 0
+    )
+    """)
+
+    # Copy data from the old table
+    cursor.execute("""
+    INSERT INTO PLAYERS (ID, first_name, last_name, balance, winnings, Won, Lost, Bets)
+    SELECT ID, first_name, last_name, balence, winnings, Won, Lost, Bets FROM PLAYERS_OLD
+    """)
+
+    # Drop the old table
+    cursor.execute("DROP TABLE PLAYERS_OLD")
+
+    # Step 2: Insert 100 new players with random data
+    # Get existing IDs to avoid duplicates
+    cursor.execute("SELECT ID FROM PLAYERS")
+    existing_ids = {row[0] for row in cursor.fetchall()}
+
+    # Generate 100 unique 4-digit IDs
+    new_ids = set()
+    while len(new_ids) < 100:
+        new_id = random.randint(1000, 9999)
+        if new_id not in existing_ids and new_id not in new_ids:
+            new_ids.add(new_id)
+    new_ids = list(new_ids)
+
+    # Sample name pools
+    first_names = ["Alex", "Taylor", "Jordan", "Morgan", "Casey", "Jamie", "Riley", "Skyler", "Avery", "Drew"]
+    last_names = ["Smith", "Johnson", "Lee", "Brown", "Wilson", "Clark", "Lewis", "Walker", "Young", "Allen"]
+
+    # Insert new players
+    for i in range(100):
+        player_id = new_ids[i]
+        first = random.choice(first_names)
+        last = random.choice(last_names)
+        cursor.execute("""
+        INSERT INTO PLAYERS (ID, first_name, last_name)
+        VALUES (?, ?, ?)
+        """, (player_id, first, last))
+
+    # Commit and close
+    conn.commit()
+    conn.close()
+
+if __name__ == "__main__":
+    update_players_table()
