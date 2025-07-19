@@ -1,6 +1,7 @@
 import sys
 import os
 import random
+import sqlite3
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget,
     QVBoxLayout, QHBoxLayout, QLabel,
@@ -9,31 +10,136 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QPixmap
 
+DB_PATH = "CasinoDB.db"
+CHEAT_PROBABILITY = .05
+CHEAT_WIN_RATE   = 0.90
+
+def init_db():
+    """Ensure CHEAT_LOG table and PLAYERS.is_flagged column exist."""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("""
+      CREATE TABLE IF NOT EXISTS CHEAT_LOG (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        player_id  INTEGER NOT NULL,
+        event_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+        event_type TEXT    NOT NULL,
+        details    TEXT
+      )
+    """)
+    c.execute("PRAGMA table_info(PLAYERS)")
+    cols = [r[1] for r in c.fetchall()]
+    if "is_flagged" not in cols:
+        c.execute("ALTER TABLE PLAYERS ADD COLUMN is_flagged INTEGER DEFAULT 0")
+    conn.commit()
+    conn.close()
+
+def get_user_stats():
+    """Console‐based login: return (ID, balance, winnings, wins, losses, bets)."""
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    while True:
+        pid_str = input("Enter your Player ID: ")
+        try:
+            pid = int(pid_str)
+        except ValueError:
+            print(" → Invalid number, try again.")
+            continue
+        cur.execute(
+            "SELECT balance, winnings, Won, Lost, Bets FROM PLAYERS WHERE ID=?",
+            (pid,)
+        )
+        row = cur.fetchone()
+        if row:
+            conn.close()
+            return pid, row[0], row[1], row[2], row[3], row[4]
+        print(f" → No player with ID {pid}, try again.")
+
 class CrapsWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, user_id, balance, winnings, games_won, games_lost, total_bets):
         super().__init__()
         self.setWindowTitle("Craps Game - PyQt5")
-        self.setFixedSize(400, 500)
+        self.setFixedSize(400, 550)
 
-        self.balance = 100
-        self.bet = 0
+        self.user_id    = user_id
+        self.balance    = balance
+        self.winnings   = winnings
+        self.games_won  = games_won
+        self.games_lost = games_lost
+        self.total_bets = total_bets
+
+        self.cheat_mode      = random.random() < CHEAT_PROBABILITY
+        self.session_history = []  
+
+        self.bet      = 0
         self.bet_type = ""
-        self.point = None
+        self.point    = None
 
         self.setup_ui()
+        self.update_balance_label()
+        mode = "ENABLED" if self.cheat_mode else "off"
+        self.log(f"Welcome, Player {self.user_id}!  [Cheat mode: {mode}]")
+
+    def connect_db(self):
+        return sqlite3.connect(DB_PATH)
+
+    def save_user(self):
+        db = self.connect_db()
+        cur = db.cursor()
+        cur.execute(
+            "UPDATE PLAYERS SET balance=?, winnings=?, Won=?, Lost=?, Bets=? WHERE ID=?",
+            (self.balance, self.winnings,
+             self.games_won, self.games_lost,
+             self.total_bets, self.user_id)
+        )
+        db.commit()
+        db.close()
+
+    def flag_cheater(self, rate):
+        """Log, flag in DB, notify, and return to menu."""
+        conn = self.connect_db()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO CHEAT_LOG (player_id, event_type, details) VALUES (?,?,?)",
+            (self.user_id,
+             "High win rate",
+             f"{rate*100:.1f}% wins over 20 games")
+        )
+        cur.execute("UPDATE PLAYERS SET is_flagged=1 WHERE ID=?", (self.user_id,))
+        conn.commit()
+        conn.close()
+        QMessageBox.warning(
+            self, "Cheater Detected",
+            f"You won {rate*100:.1f}% of your last 20 rolls and have been flagged."
+        )
+        self.close()
 
     def setup_ui(self):
-        main_widget = QWidget()
-        self.setCentralWidget(main_widget)
+        w = QWidget()
+        self.setCentralWidget(w)
+        layout = QVBoxLayout()
 
-        main_layout = QVBoxLayout()
+        self.balance_label = QLabel()
+        layout.addWidget(self.balance_label)
 
-        self.balance_label = QLabel(f"Balance: ${self.balance}")
-        main_layout.addWidget(self.balance_label)
+        # Deposit & cash‑out
+        dc = QHBoxLayout()
+        self.deposit_input = QLineEdit()
+        self.deposit_input.setPlaceholderText("Deposit amount")
+        dc.addWidget(self.deposit_input)
+        dbtn = QPushButton("Deposit")
+        dbtn.clicked.connect(self.deposit_funds)
+        dc.addWidget(dbtn)
+        cbtn = QPushButton("Cash Out")
+        cbtn.clicked.connect(self.cash_out)
+        dc.addWidget(cbtn)
+        layout.addLayout(dc)
 
-        bet_layout = QHBoxLayout()
+        # Bet
+        br = QHBoxLayout()
         self.bet_input = QLineEdit()
         self.bet_input.setPlaceholderText("Enter bet amount")
+        br.addWidget(self.bet_input)
         self.bet_type_combo = QComboBox()
         self.bet_type_combo.addItems([
             "Pass Line", "Don't Pass", "Field",
@@ -41,84 +147,133 @@ class CrapsWindow(QMainWindow):
             "Hard 4", "Hard 6", "Hard 8",
             "Big 6 & 8"
         ])
-        self.place_bet_btn = QPushButton("Place Bet")
-        self.place_bet_btn.clicked.connect(self.place_bet)
-        bet_layout.addWidget(self.bet_input)
-        bet_layout.addWidget(self.bet_type_combo)
-        bet_layout.addWidget(self.place_bet_btn)
-        main_layout.addLayout(bet_layout)
+        br.addWidget(self.bet_type_combo)
+        pbtn = QPushButton("Place Bet")
+        pbtn.clicked.connect(self.place_bet)
+        br.addWidget(pbtn)
+        layout.addLayout(br)
 
-        dice_layout = QHBoxLayout()
+        # Dice images
+        dr = QHBoxLayout()
         self.die1_label = QLabel()
         self.die2_label = QLabel()
         for lbl in (self.die1_label, self.die2_label):
             lbl.setFixedSize(64, 64)
-            dice_layout.addWidget(lbl)
-        main_layout.addLayout(dice_layout)
+            dr.addWidget(lbl)
+        layout.addLayout(dr)
 
+        # Roll
         self.roll_button = QPushButton("Roll Dice")
         self.roll_button.setEnabled(False)
         self.roll_button.clicked.connect(self.roll_dice)
-        main_layout.addWidget(self.roll_button)
+        layout.addWidget(self.roll_button)
 
         self.output_box = QTextEdit()
         self.output_box.setReadOnly(True)
-        main_layout.addWidget(self.output_box)
+        layout.addWidget(self.output_box)
 
-        main_widget.setLayout(main_layout)
+        w.setLayout(layout)
 
-    def log(self, message):
-        self.output_box.append(message)
+    def log(self, msg):
+        self.output_box.append(msg)
+
+    def update_balance_label(self):
+        self.balance_label.setText(
+            f"Player {self.user_id} - Balance: ${self.balance:.2f}"
+        )
+
+    def deposit_funds(self):
+        try:
+            amt = float(self.deposit_input.text())
+            if amt <= 0: raise ValueError
+        except ValueError:
+            QMessageBox.warning(self, "Invalid Deposit", "Enter a positive number.")
+            return
+        self.balance += amt
+        self.log(f"Deposited ${amt:.2f}")
+        self.update_balance_label()
+        self.save_user()
+        self.deposit_input.clear()
+
+    def cash_out(self):
+        self.save_user()
+        QMessageBox.information(
+            self, "Cash Out",
+            f"You have cashed out ${self.balance:.2f}.\nThanks for playing!"
+        )
+        self.close()
 
     def place_bet(self):
         try:
-            amt = int(self.bet_input.text())
-            if amt <= 0 or amt > self.balance:
-                raise ValueError
+            amt = float(self.bet_input.text())
+            if amt <= 0 or amt > self.balance: raise ValueError
         except ValueError:
-            QMessageBox.warning(self, "Invalid Bet", "Enter a valid bet amount within your balance.")
+            QMessageBox.warning(self, "Invalid Bet", "Enter a valid amount within your balance.")
             return
-
         self.bet = amt
         self.bet_type = self.bet_type_combo.currentText()
         self.balance -= self.bet
-        self.update_balance()
-        self.log(f"Bet ${self.bet} on {self.bet_type}")
+        self.total_bets += 1
+        self.update_balance_label()
+        self.log(f"Bet ${self.bet:.2f} on {self.bet_type}")
         self.roll_button.setEnabled(True)
 
     def roll_dice(self):
-        d1, d2 = random.randint(1, 6), random.randint(1, 6)
+        if self.cheat_mode and random.random() < CHEAT_WIN_RATE:
+            cheat_win_map = {
+                "Pass Line":       (1, "Pass Line wins!"),
+                "Don't Pass":      (1, "Don't Pass wins!"),
+                "Field":           (1, "Field bet wins 1:1!"),
+                "Any 7":           (4, "Any 7 wins 4:1!"),
+                "Craps":           (7, "Craps wins 7:1!"),
+                "Hard 4":          (7, "Hard 4 hits! Pays 7:1"),
+                "Hard 6":          (9, "Hard 6 hits! Pays 9:1"),
+                "Hard 8":          (9, "Hard 8 hits! Pays 9:1"),
+                "Big 6 & 8":       (1, "Big 6 & 8 wins 1:1!")
+            }
+            mult, msg = cheat_win_map[self.bet_type]
+            self.win(msg, multiplier=mult)
+            self.games_won += 1
+            self.session_history.append(True)
+            self.finish_round()
+            return
+        d1 = random.randint(1, 6)
+        d2 = random.randint(1, 6)
         total = d1 + d2
         self.update_dice_images(d1, d2)
         self.resolve_bet(total, d1, d2)
 
     def update_dice_images(self, d1, d2):
         try:
-            pix1 = QPixmap(os.path.abspath(f"dice{d1}.png")).scaled(64, 64)
-            pix2 = QPixmap(os.path.abspath(f"dice{d2}.png")).scaled(64, 64)
-            self.die1_label.setPixmap(pix1)
-            self.die2_label.setPixmap(pix2)
+            p1 = QPixmap(os.path.abspath(f"dice{d1}.png")).scaled(64,64)
+            p2 = QPixmap(os.path.abspath(f"dice{d2}.png")).scaled(64,64)
+            self.die1_label.setPixmap(p1)
+            self.die2_label.setPixmap(p2)
         except Exception as e:
             self.log(f"Error loading dice images: {e}")
 
     def resolve_bet(self, total, d1, d2):
+        mult = 1
+        won_round = None
+        msg = ""
+
         # --- Pass Line ---
         if self.bet_type == "Pass Line":
             if self.point is None:
                 if total in (7, 11):
-                    self.win("Pass Line wins!")
+                    won_round = True;  msg = "Pass Line wins!"
                 elif total in (2, 3, 12):
-                    self.log("Craps! Pass Line loses.")
+                    won_round = False; msg = "Craps! Pass Line loses."
                 else:
                     self.point = total
                     self.log(f"Point is now {self.point}")
                     return
             else:
                 if total == self.point:
-                    self.win("Point hit! Pass Line wins.")
+                    won_round = True;  msg = "Point hit! Pass Line wins."
                     self.point = None
                 elif total == 7:
-                    self.log("Seven-out. Pass Line loses.")
+                    won_round = False; msg = "Seven-out. Pass Line loses."
                     self.point = None
                 else:
                     return
@@ -127,22 +282,22 @@ class CrapsWindow(QMainWindow):
         elif self.bet_type == "Don't Pass":
             if self.point is None:
                 if total in (2, 3):
-                    self.win("Don't Pass wins!")
+                    won_round = True;  msg = "Don't Pass wins!"
                 elif total == 12:
-                    self.log("Push on 12.") 
+                    won_round = None;  msg = "Push on 12."
                     self.balance += self.bet
                 elif total in (7, 11):
-                    self.log("Don't Pass loses.")
+                    won_round = False; msg = "Don't Pass loses."
                 else:
                     self.point = total
                     self.log(f"Point is now {self.point}")
                     return
             else:
                 if total == self.point:
-                    self.log("Point hit. Don't Pass loses.")
+                    won_round = False; msg = "Point hit. Don't Pass loses."
                     self.point = None
                 elif total == 7:
-                    self.win("Seven-out! Don't Pass wins.")
+                    won_round = True;  msg = "Seven-out! Don't Pass wins."
                     self.point = None
                 else:
                     return
@@ -150,84 +305,114 @@ class CrapsWindow(QMainWindow):
         # --- Field ---
         elif self.bet_type == "Field":
             if total in (3, 4, 9, 10, 11):
-                self.win("Field bet wins 1:1!", multiplier=1)
+                won_round = True;  msg = "Field bet wins 1:1!";  mult = 1
             elif total in (2, 12):
-                self.win("Field bet wins 2:1!", multiplier=2)
+                won_round = True;  msg = "Field bet wins 2:1!";  mult = 2
             else:
-                self.log("Field bet loses.")
+                won_round = False; msg = "Field bet loses."
 
         # --- Any 7 ---
         elif self.bet_type == "Any 7":
             if total == 7:
-                self.win("Any 7 bet wins 4:1!", multiplier=4)
+                won_round = True;  msg = "Any 7 wins 4:1!";  mult = 4
             else:
-                self.log("Any 7 bet loses.")
+                won_round = False; msg = "Any 7 loses."
 
         # --- Craps ---
         elif self.bet_type == "Craps":
             if total in (2, 3, 12):
-                self.win("Craps bet wins 7:1!", multiplier=7)
+                won_round = True;  msg = "Craps wins 7:1!";  mult = 7
             else:
-                self.log("Craps bet loses.")
+                won_round = False; msg = "Craps loses."
 
         # --- Hard 4 ---
         elif self.bet_type == "Hard 4":
-            if total == 4 and d1 == d2:            
-                self.win("Hard 4 hits! Pays 8:1", multiplier=8)
-            elif total == 4 and d1 != d2:         
-                self.log("Easy 4 hit. Hard 4 loses.")
+            if total == 4 and d1 == d2:
+                won_round = True;  msg = "Hard 4 hits! Pays 7:1";  mult = 7
+            elif total == 4 and d1 != d2:
+                won_round = False; msg = "Easy 4 hit. Hard 4 loses."
             elif total == 7:
-                self.log("Seven-out. Hard 4 loses.")
+                won_round = False; msg = "Seven-out. Hard 4 loses."
             else:
                 self.log(f"{total}  no decision; roll again for Hard 4.")
-                return  
+                return
 
         # --- Hard 6 ---
         elif self.bet_type == "Hard 6":
-            if total == 6 and d1 == d2:            
-                self.win("Hard 6 hits! Pays 10:1", multiplier=10)
-            elif total == 6 and d1 != d2:         
-                self.log("Easy 6 hit. Hard 6 loses.")
+            if total == 6 and d1 == d2:
+                won_round = True;  msg = "Hard 6 hits! Pays 9:1";  mult = 9
+            elif total == 6 and d1 != d2:
+                won_round = False; msg = "Easy 6 hit. Hard 6 loses."
             elif total == 7:
-                self.log("Seven-out. Hard 6 loses.")
+                won_round = False; msg = "Seven-out. Hard 6 loses."
             else:
                 self.log(f"{total}  no decision; roll again for Hard 6.")
-                return  
+                return
 
         # --- Hard 8 ---
         elif self.bet_type == "Hard 8":
-            if total == 8 and d1 == d2:            
-                self.win("Hard 8 hits! Pays 10:1", multiplier=10)
-            elif total == 8 and d1 != d2:         
-                self.log("Easy 8 hit. Hard 8 loses.")
+            if total == 8 and d1 == d2:
+                won_round = True;  msg = "Hard 8 hits! Pays 9:1";  mult = 9
+            elif total == 8 and d1 != d2:
+                won_round = False; msg = "Easy 8 hit. Hard 8 loses."
             elif total == 7:
-                self.log("Seven-out. Hard 8 loses.")
+                won_round = False; msg = "Seven-out. Hard 8 loses."
             else:
                 self.log(f"{total}  no decision; roll again for Hard 8.")
-                return  
+                return
 
         # --- Big 6 & 8 ---
         elif self.bet_type == "Big 6 & 8":
             if total in (6, 8):
-                self.win("Big 6 & 8 wins 1:1!", multiplier=1)
+                won_round = True;  msg = "Big 6 & 8 wins 1:1!";  mult = 1
             else:
-                self.log("Big 6 & 8 loses.")
+                won_round = False; msg = "Big 6 & 8 loses."
 
+        if won_round is True:
+            self.win(msg, multiplier=mult)
+            self.games_won += 1
+        elif won_round is False:
+            self.log(msg)
+            self.games_lost += 1
+        else:
+            self.log(msg) 
+
+        self.session_history.append(won_round is True)
+        self.finish_round()
+
+    def finish_round(self):
         self.roll_button.setEnabled(False)
-        self.update_balance()
+        if len(self.session_history) >= 20:
+            last20 = self.session_history[-20:]
+            rate = sum(last20) / 20
+            if rate >= 0.8:
+                return self.flag_cheater(rate)
+        self.update_balance_label()
+        self.save_user()
         if self.balance <= 0:
             QMessageBox.information(self, "Game Over", "You are out of money.")
 
     def win(self, message, multiplier=1):
         payout = self.bet * (1 + multiplier)
         self.balance += payout
+        self.winnings += self.bet * multiplier
         self.log(message)
 
-    def update_balance(self):
-        self.balance_label.setText(f"Balance: ${self.balance}")
-
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = CrapsWindow()
-    window.show()
-    sys.exit(app.exec_())
+    init_db()
+    while True:
+        print("\n=== Welcome to the Casino! ===")
+        print("1) Play Craps")
+        print("2) Exit")
+        choice = input("Select an option: ")
+        if choice == "1":
+            uid, bal, win, wons, losses, bets = get_user_stats()
+            app = QApplication(sys.argv)
+            w = CrapsWindow(uid, bal, win, wons, losses, bets)
+            w.show()
+            app.exec_()
+        elif choice == "2":
+            print("Thanks for visiting—goodbye!")
+            break
+        else:
+            print("Invalid choice, please try again.")
