@@ -1,0 +1,146 @@
+import sys
+import sqlite3
+from PyQt6.QtWidgets import (
+    QApplication, QWidget, QLabel, QPushButton, QVBoxLayout,
+    QLineEdit, QMessageBox, QInputDialog
+)
+from login_menu import LoginMenu
+from roulette import RouletteGame
+from craps import Craps
+
+DB_PATH = "CasinoDB.db"
+
+class MainMenu(QWidget):
+    def __init__(self, player_id):
+        super().__init__()
+        self.setWindowTitle("Casino Menu")
+        self.setGeometry(300, 300, 300, 250)
+        self.player_id = player_id
+
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("Choose a game or exit:"))
+
+        btn_roulette = QPushButton("Play Roulette")
+        btn_roulette.clicked.connect(self.launch_roulette)
+        layout.addWidget(btn_roulette)
+
+        btn_craps = QPushButton("Play Craps")
+        btn_craps.clicked.connect(self.launch_craps)
+        layout.addWidget(btn_craps)
+
+        btn_exit = QPushButton("Exit Casino")
+        btn_exit.clicked.connect(self.cash_out_on_exit)
+        layout.addWidget(btn_exit)
+
+        self.setLayout(layout)
+
+    def launch_roulette(self):
+        self.game_window = RouletteGame(self.player_id, self)
+        self.game_window.show()
+        self.hide()
+
+    def launch_craps(self):
+        self.game_window = Craps(self.player_id, self)
+        self.game_window.show()
+        self.hide()
+
+    def cash_out_on_exit(self):
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute("SELECT balance FROM PLAYERS WHERE ID=?", (self.player_id,))
+        result = cur.fetchone()
+        conn.close()
+
+        if not result:
+            QMessageBox.warning(self, "Error", "Player not found.")
+            self.close()
+            return
+
+        current_balance = result[0]
+
+        cashout_amt, ok = QInputDialog.getDouble(self, "Cash Out", f"Your balance is ${current_balance:.2f}. How much would you like to cash out?", decimals=2)
+
+        if ok:
+            if cashout_amt <= 0:
+                QMessageBox.warning(self, "Invalid Amount", "Amount must be greater than 0.")
+                return
+            if cashout_amt > current_balance:
+                QMessageBox.warning(self, "Insufficient Funds", "You do not have enough balance.")
+                return
+
+            new_balance = current_balance - cashout_amt
+            conn = sqlite3.connect(DB_PATH)
+            cur = conn.cursor()
+            cur.execute("UPDATE PLAYERS SET balance=? WHERE ID=?", (new_balance, self.player_id))
+            conn.commit()
+            conn.close()
+
+            QMessageBox.information(self, "Cash Out", f"You cashed out ${cashout_amt:.2f}")
+
+        self.close()
+
+
+class DepositWindow(QWidget):
+    def __init__(self, player_id, full_name):
+        super().__init__()
+        self.setWindowTitle("Deposit")
+        self.setGeometry(300, 300, 350, 250)
+        self.player_id = player_id
+        self.full_name = full_name
+
+        self.layout = QVBoxLayout()
+        self.setLayout(self.layout)
+
+        self.welcome_label = QLabel(f"Welcome {self.full_name}!")
+        self.layout.addWidget(self.welcome_label)
+
+        self.deposit_input = QLineEdit()
+        self.deposit_input.setPlaceholderText("Enter deposit amount")
+        self.layout.addWidget(self.deposit_input)
+
+        deposit_button = QPushButton("Deposit")
+        deposit_button.clicked.connect(self.handle_deposit)
+        self.layout.addWidget(deposit_button)
+
+        self.start_button = QPushButton("Enter Casino")
+        self.start_button.setEnabled(False)
+        self.start_button.clicked.connect(self.go_to_main_menu)
+        self.layout.addWidget(self.start_button)
+
+    def handle_deposit(self):
+        try:
+            amount = float(self.deposit_input.text())
+            if amount < 0:
+                raise ValueError
+
+            conn = sqlite3.connect(DB_PATH)
+            cur = conn.cursor()
+            cur.execute("SELECT balance FROM PLAYERS WHERE ID=?", (self.player_id,))
+            result = cur.fetchone()
+            if not result:
+                QMessageBox.warning(self, "Error", "Player not found.")
+                conn.close()
+                return
+
+            new_balance = result[0] + amount
+            cur.execute("UPDATE PLAYERS SET balance=? WHERE ID=?", (new_balance, self.player_id))
+            conn.commit()
+            conn.close()
+
+            QMessageBox.information(self, "Deposit Successful", f"You deposited ${amount:.2f}")
+            self.start_button.setEnabled(True)
+
+        except:
+            QMessageBox.warning(self, "Invalid Input", "Enter a valid number.")
+
+    def go_to_main_menu(self):
+        self.main_menu = MainMenu(self.player_id)
+        self.main_menu.show()
+        self.close()
+
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    login = LoginMenu()
+    login.show()
+    sys.exit(app.exec())
