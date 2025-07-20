@@ -22,6 +22,8 @@ def add_column_if_missing(table_name, column_name, column_type):  #Define a func
 #Add session_number to both tables
 add_column_if_missing("Roulette", "session_number", "INTEGER")  #Add session_number column to Roulette table if missing
 add_column_if_missing("Craps", "session_number", "INTEGER")  #Add session_number column to Craps table if missing
+add_column_if_missing("Blackjack", "session_number", "INTEGER")  #Add session_number column to Craps table if missing
+
 
 conn.commit()  #Commit all database changes
 conn.close()  #Close the database connection
