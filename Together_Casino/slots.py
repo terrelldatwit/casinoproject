@@ -56,8 +56,6 @@ def get_symbol(number):
     }.get(number, "")
 
 def spin_slots():
-    global total_money
-
     try:
         current_bet = int(bet_entry.get())
         if current_bet <= 0:
