@@ -241,7 +241,7 @@ class HighLowGame(QWidget):
         self.lower_button = QPushButton("Lower")
         # Apply CSS styling
         self.lower_button.setStyleSheet("background-color: #F44336; color: white; padding: 10px; border-radius: 8px; font-size: 16px;")
-        # Connect button click to make_guess with expect_higher=False (corrected: was 'expect_lower=True')
+        # Connect button click to make_guess with expect_higher=False
         self.lower_button.clicked.connect(lambda: self.make_guess(expect_higher=False))
         # Add to guess button layout
         guess_button_layout.addWidget(self.lower_button)
@@ -669,6 +669,7 @@ class HighLowGame(QWidget):
                     session_numbers.append(int(session_num)) # Add session number
 
             # Create a new QWidget for the graph window and store it as an instance variable
+            # This prevents the window from being garbage collected and closing immediately
             self.graph_window = QWidget()
             # Set window title
             self.graph_window.setWindowTitle("Net Winnings - High/Low")
