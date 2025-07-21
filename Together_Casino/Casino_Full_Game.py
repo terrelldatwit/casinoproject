@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (  #Import required PyQt6 GUI classes
 from login_menu import LoginMenu  #Import the LoginMenu class
 from roulette import RouletteGame  #Import the RouletteGame class
 from craps import Craps  #Import the Craps class
+from HighLowSim import HighLowSim #import Highlow class
 
 DB_PATH = "CasinoDB.db"  #Set constant path to the database
 
@@ -28,6 +29,10 @@ class MainMenu(QWidget):  #Main menu class inheriting from QWidget
         btn_craps.clicked.connect(self.launch_craps)  #Connect to craps launch method
         layout.addWidget(btn_craps)  #Add to layout
 
+        btn_craps = QPushButton("Play High Low")  #Create craps button
+        btn_craps.clicked.connect(self.launch_HighLowSim)  #Connect to craps launch method
+        layout.addWidget(btn_highlow)  #Add to layout
+
         btn_exit = QPushButton("Exit Casino")  #Create exit button
         btn_exit.clicked.connect(self.cash_out_on_exit)  #Connect to cash out method
         layout.addWidget(btn_exit)  #Add to layout
@@ -41,6 +46,11 @@ class MainMenu(QWidget):  #Main menu class inheriting from QWidget
 
     def launch_craps(self):  #Launch the craps game
         self.game_window = Craps(self.player_id, self)  #Create Craps game window
+        self.game_window.show()  #Display it
+        self.hide()  #Hide the menu window
+
+    def launch_HighLow(self) 
+        self.game_window = HighLow(self.player_id, self) 
         self.game_window.show()  #Display it
         self.hide()  #Hide the menu window
 
