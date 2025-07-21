@@ -39,6 +39,8 @@ from craps import Craps
 from blackjack import Blackjack
 # Import HighLowGame for the High/Low game
 from highlow import HighLowGame
+# Import SlotsGame for the Slots game (New import)
+from slots import SlotsGame
 
 # Define the path to the SQLite database
 DB_PATH = "CasinoDB.db"
@@ -89,6 +91,13 @@ class MainMenu(QWidget):
         # Add the High/Low button to the layout
         layout.addWidget(btn_highlow)
 
+        # Create a button for playing Slots (New button)
+        btn_slots = QPushButton("Play Slots")
+        # Connect the button's clicked signal to the launch_slots method
+        btn_slots.clicked.connect(self.launch_slots)
+        # Add the Slots button to the layout
+        layout.addWidget(btn_slots)
+
         # Create a button to view total net winnings
         btn_net = QPushButton("View Net Winnings")
         # Connect the button's clicked signal to the plot_total_net_winnings method
@@ -137,7 +146,13 @@ class MainMenu(QWidget):
         self.hide()
         # Create an instance of the HighLowGame, passing player ID and self (MainMenu) as parent
         self.highlow_game = HighLowGame(self.player_id, self) # Keep reference to the game instance
-        # Note: HighLowGame handles its own mainloop if it's Tkinter, or just shows itself if PyQt6.
+
+    # Method to launch the Slots game (New method)
+    def launch_slots(self):
+        # Hide the MainMenu BEFORE launching Slots
+        self.hide()
+        # Create an instance of the SlotsGame, passing player ID and self (MainMenu) as parent
+        self.slots_game = SlotsGame(self.player_id, self) # Keep reference to the game instance
 
     # Method to handle cashing out when exiting the casino
     def cash_out_on_exit(self):
@@ -234,8 +249,8 @@ class MainMenu(QWidget):
         # Initialize a list to store all rows of winnings data
         all_rows = []
 
-        # Iterate through a list of game names (added "HighLow")
-        for game in ["Roulette", "Craps", "Blackjack", "HighLow"]: # Updated games list
+        # Iterate through a list of game names (added "HighLow" and "Slots")
+        for game in ["Roulette", "Craps", "Blackjack", "HighLow", "Slots"]: # Updated games list
             try:
                 # Execute a query to select session data for the current game and player
                 cur.execute(f"""
@@ -314,7 +329,7 @@ class MainMenu(QWidget):
 
         # Create a QLabel to display the total net winnings
         label = QLabel(f"Total Net Winnings: ${total:.2f}")
-        # Center-align the label text
+        # Center-align the label
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         # Add the canvas to the layout
