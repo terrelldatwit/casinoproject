@@ -1,156 +1,420 @@
-import sys  #Import system module for application arguments
-import sqlite3  #Import sqlite3 to interact with the SQLite database
-from PyQt6.QtWidgets import (  #Import required PyQt6 GUI classes
-    QApplication, QWidget, QLabel, QPushButton, QVBoxLayout,
-    QLineEdit, QMessageBox, QInputDialog
+# Casino_Full_Game.py
+
+# Import system module for application arguments
+import sys
+# Import sqlite3 to interact with the SQLite database
+import sqlite3
+# Import required PyQt6 GUI classes
+from PyQt6.QtWidgets import (
+    # Import QApplication for managing the application's event loop
+    QApplication,
+    # Import QWidget as the base class for all user interface objects
+    QWidget,
+    # Import QLabel for displaying text or image information
+    QLabel,
+    # Import QPushButton for clickable buttons
+    QPushButton,
+    # Import QVBoxLayout for vertical arrangement of widgets
+    QVBoxLayout,
+    # Import QLineEdit for single-line text input
+    QLineEdit,
+    # Import QMessageBox for displaying modal dialogs with messages
+    QMessageBox,
+    # Import QInputDialog for simple input dialogs
+    QInputDialog
 )
-from login_menu import LoginMenu  #Import the LoginMenu class
-from roulette import RouletteGame  #Import the RouletteGame class
-from craps import Craps  #Import the Craps class
-from HighLowSim import HighLowSim #import Highlow class
+# Import FigureCanvasQTAgg for embedding Matplotlib figures into PyQt6 applications
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+# Import Figure class from Matplotlib for creating plots
+from matplotlib.figure import Figure
+# Import Qt core for alignment and flags
+from PyQt6.QtCore import Qt
+# Import LoginMenu for the login screen
+from login_menu import LoginMenu
+# Import RouletteGame for the roulette game GUI
+from roulette import RouletteGame
+# Import Craps for the craps game GUI
+from craps import Craps
+# Import Blackjack for the blackjack game (Tkinter GUI)
+from blackjack import Blackjack
 
-DB_PATH = "CasinoDB.db"  #Set constant path to the database
+# Define the path to the SQLite database
+DB_PATH = "CasinoDB.db"
 
-class MainMenu(QWidget):  #Main menu class inheriting from QWidget
-    def __init__(self, player_id):  #Initialize the menu with player ID
-        super().__init__()  #Initialize QWidget
-        self.setWindowTitle("Casino Menu")  #Set window title
-        self.setGeometry(300, 300, 300, 250)  #Set window size and position
-        self.player_id = player_id  #Store player ID for use in menu
+# Define the MainMenu class inheriting from QWidget
+class MainMenu(QWidget):
+    # Constructor for MainMenu
+    def __init__(self, player_id):
+        # Initialize QWidget parent class
+        super().__init__()
+        # Set window title
+        self.setWindowTitle("Casino Menu")
+        # Set window size and position
+        self.setGeometry(300, 300, 300, 250)
+        # Store player ID
+        self.player_id = player_id
 
-        layout = QVBoxLayout()  #Create vertical layout
-        layout.addWidget(QLabel("Choose a game or exit:"))  #Instruction label
+        # Create a vertical layout for the main menu
+        layout = QVBoxLayout()
+        # Add a label to the layout with instructions
+        layout.addWidget(QLabel("Choose a game or exit:"))
 
-        btn_roulette = QPushButton("Play Roulette")  #Create roulette button
-        btn_roulette.clicked.connect(self.launch_roulette)  #Connect to roulette launch method
-        layout.addWidget(btn_roulette)  #Add to layout
+        # Create a button for playing Roulette
+        btn_roulette = QPushButton("Play Roulette")
+        # Connect the button's clicked signal to the launch_roulette method
+        btn_roulette.clicked.connect(self.launch_roulette)
+        # Add the roulette button to the layout
+        layout.addWidget(btn_roulette)
 
-        btn_craps = QPushButton("Play Craps")  #Create craps button
-        btn_craps.clicked.connect(self.launch_craps)  #Connect to craps launch method
-        layout.addWidget(btn_craps)  #Add to layout
+        # Create a button for playing Craps
+        btn_craps = QPushButton("Play Craps")
+        # Connect the button's clicked signal to the launch_craps method
+        btn_craps.clicked.connect(self.launch_craps)
+        # Add the craps button to the layout
+        layout.addWidget(btn_craps)
 
-        btn_craps = QPushButton("Play High Low")  #Create craps button
-        btn_craps.clicked.connect(self.launch_HighLowSim)  #Connect to craps launch method
-        layout.addWidget(btn_highlow)  #Add to layout
+        # Create a button for playing Blackjack
+        btn_blackjack = QPushButton("Play Blackjack")
+        # Connect the button's clicked signal to the launch_blackjack method
+        btn_blackjack.clicked.connect(self.launch_blackjack)
+        # Add the blackjack button to the layout
+        layout.addWidget(btn_blackjack)
 
-        btn_exit = QPushButton("Exit Casino")  #Create exit button
-        btn_exit.clicked.connect(self.cash_out_on_exit)  #Connect to cash out method
-        layout.addWidget(btn_exit)  #Add to layout
+        # Create a button to view total net winnings
+        btn_net = QPushButton("View Net Winnings")
+        # Connect the button's clicked signal to the plot_total_net_winnings method
+        btn_net.clicked.connect(self.plot_total_net_winnings)
+        # Add the net winnings button to the layout
+        layout.addWidget(btn_net)
 
-        self.setLayout(layout)  #Apply layout to window
+        # Create an exit button for the casino
+        btn_exit = QPushButton("Exit Casino")
+        # Connect the button's clicked signal to the cash_out_on_exit method
+        btn_exit.clicked.connect(self.cash_out_on_exit)
+        # Add the exit button to the layout
+        layout.addWidget(btn_exit)
 
-    def launch_roulette(self):  #Launch the roulette game
-        self.game_window = RouletteGame(self.player_id, self)  #Create Roulette game window
-        self.game_window.show()  #Display it
-        self.hide()  #Hide the menu window
+        # Apply the created layout to the window
+        self.setLayout(layout)
 
-    def launch_craps(self):  #Launch the craps game
-        self.game_window = Craps(self.player_id, self)  #Create Craps game window
-        self.game_window.show()  #Display it
-        self.hide()  #Hide the menu window
+    # Method to launch the Roulette game
+    def launch_roulette(self):
+        # Create an instance of the RouletteGame, passing player ID and self (MainMenu) as parent
+        self.game_window = RouletteGame(self.player_id, self)
+        # Show the roulette game window
+        self.game_window.show()
+        # Hide the current MainMenu window
+        self.hide()
 
-    def launch_HighLow(self) 
-        self.game_window = HighLow(self.player_id, self) 
-        self.game_window.show()  #Display it
-        self.hide()  #Hide the menu window
+    # Method to launch the Craps game
+    def launch_craps(self):
+        # Create an instance of the Craps game, passing player ID and self (MainMenu) as parent
+        self.game_window = Craps(self.player_id, self)
+        # Show the craps game window
+        self.game_window.show()
+        # Hide the current MainMenu window
+        self.hide()
 
-    def cash_out_on_exit(self):  #Handle player cash out
-        conn = sqlite3.connect(DB_PATH)  #Connect to the database
-        cur = conn.cursor()  #Create cursor
-        cur.execute("SELECT balance FROM PLAYERS WHERE ID=?", (self.player_id,))  #Fetch balance
-        result = cur.fetchone()  #Store result
-        conn.close()  #Close connection
+    # Method to launch the Blackjack game (which uses Tkinter)
+    def launch_blackjack(self):
+        # Hide the MainMenu BEFORE launching Blackjack to prevent display issues
+        self.hide()
+        # Create an instance of the Blackjack game, passing player ID and self (MainMenu) as parent
+        self.blackjack_game = Blackjack(self.player_id, self) # Keep reference to the game instance
 
-        if not result:  #If no player found
-            QMessageBox.warning(self, "Error", "Player not found.")  #Show warning
-            self.close()  #Close window
-            return  #Stop execution
+    # Method to handle cashing out when exiting the casino
+    def cash_out_on_exit(self):
+        # Connect to the SQLite database
+        conn = sqlite3.connect(DB_PATH)
+        # Create a cursor object
+        cur = conn.cursor()
+        # Execute a query to get the player's current balance
+        cur.execute("SELECT balance FROM PLAYERS WHERE ID=?", (self.player_id,))
+        # Fetch the result
+        result = cur.fetchone()
+        # Close the database connection
+        conn.close()
 
-        current_balance = result[0]  #Extract balance value
+        # If player not found in the database
+        if not result:
+            # Show a warning message
+            QMessageBox.warning(self, "Error", "Player not found.")
+            # Close the current window
+            self.close()
+            # Exit the method
+            return
 
-        cashout_amt, ok = QInputDialog.getDouble(self, "Cash Out", f"Your balance is ${current_balance:.2f}. How much would you like to cash out?", decimals=2)  #Prompt for cash out amount
+        # Get the current balance from the query result
+        current_balance = result[0]
 
-        if ok:  #If user confirms
-            if cashout_amt < 0:  #Negative values not allowed
-                QMessageBox.warning(self, "Invalid Amount", "Amount must be greater than 0.")  #Show error
+        # Open an input dialog to ask the user how much they want to cash out
+        cashout_amt, ok = QInputDialog.getDouble(
+            # Parent widget
+            self,
+            # Dialog title
+            "Cash Out",
+            # Dialog message with current balance
+            f"Your balance is ${current_balance:.2f}. How much would you like to cash out?",
+            # Set decimals for input
+            decimals=2
+        )
+
+        # If the user clicked OK in the input dialog
+        if ok:
+            # If the cashout amount is negative
+            if cashout_amt < 0:
+                # Show a warning for invalid amount
+                QMessageBox.warning(self, "Invalid Amount", "Amount must be greater than 0.")
+                # Exit the method
                 return
-            if cashout_amt > current_balance:  #Cannot cash out more than balance
-                QMessageBox.warning(self, "Insufficient Funds", "You do not have enough balance.")  #Show error
+            # If the cashout amount exceeds the current balance
+            if cashout_amt > current_balance:
+                # Show a warning for insufficient funds
+                QMessageBox.warning(self, "Insufficient Funds", "You do not have enough balance.")
+                # Exit the method
                 return
 
-            new_balance = current_balance - cashout_amt  #Calculate new balance
-            conn = sqlite3.connect(DB_PATH)  #Reconnect to database
-            cur = conn.cursor()  #Create new cursor
-            cur.execute("UPDATE PLAYERS SET balance=? WHERE ID=?", (new_balance, self.player_id))  #Update balance
-            conn.commit()  #Save changes
-            conn.close()  #Close connection
+            # Calculate the new balance after cashout
+            new_balance = current_balance - cashout_amt
+            # Reconnect to the database
+            conn = sqlite3.connect(DB_PATH)
+            # Create a new cursor
+            cur = conn.cursor()
+            # Update the player's balance in the PLAYERS table
+            cur.execute("UPDATE PLAYERS SET balance=? WHERE ID=?", (new_balance, self.player_id))
+            # Commit the changes to the database
+            conn.commit()
+            # Close the database connection
+            conn.close()
 
-            QMessageBox.information(self, "Cash Out", f"You cashed out ${cashout_amt:.2f}")  #Show confirmation
+            # Show an information message confirming the cashout
+            QMessageBox.information(self, "Cash Out", f"You cashed out ${cashout_amt:.2f}")
 
-        self.close()  #Close main menu window
+        # Close the current MainMenu window
+        self.close()
 
+    # Method to plot total net winnings across all games
+    def plot_total_net_winnings(self):
+        # Connect to the SQLite database
+        conn = sqlite3.connect(DB_PATH)
+        # Create a cursor object
+        cur = conn.cursor()
+        # Fetch the player's full name from the PLAYERS table
+        cur.execute("SELECT first_name || ' ' || last_name FROM PLAYERS WHERE ID=?", (self.player_id,))
+        # Fetch the result
+        name_row = cur.fetchone()
+        # If player name not found
+        if not name_row:
+            # Show an information message
+            QMessageBox.information(self, "Error", "Player name not found.")
+            # Close the database connection
+            conn.close()
+            # Exit the method
+            return
 
-class DepositWindow(QWidget):  #Deposit window class
-    def __init__(self, player_id, full_name):  #Initialize with player ID and name
-        super().__init__()  #Initialize QWidget
-        self.setWindowTitle("Deposit")  #Set window title
-        self.setGeometry(300, 300, 350, 250)  #Set geometry
-        self.player_id = player_id  #Store player ID
-        self.full_name = full_name  #Store player full name
+        # Get the player's name
+        player_name = name_row[0]
+        # Initialize a list to store all rows of winnings data
+        all_rows = []
 
-        self.layout = QVBoxLayout()  #Create layout
-        self.setLayout(self.layout)  #Apply layout
+        # Iterate through a list of game names
+        for game in ["Roulette", "Craps", "Blackjack", "Poker", "Slots", "HighLow"]:
+            try:
+                # Execute a query to select session data for the current game and player
+                cur.execute(f"""
+                    SELECT session_number, money_won, bet_amount FROM {game}
+                    WHERE player_name=? ORDER BY session_number ASC
+                """, (player_name,))
+                # Fetch all matching rows
+                rows = cur.fetchall()
+                # Extend the all_rows list with calculated net winnings for each session
+                all_rows.extend([
+                    (session, money_won - bet_amount)
+                    for session, money_won, bet_amount in rows if session is not None
+                ])
+            # Catch OperationalError if the table for a game does not exist
+            except sqlite3.OperationalError:
+                # Continue to the next game if the table is missing
+                continue
 
-        self.welcome_label = QLabel(f"Welcome {self.full_name}!")  #Welcome message
-        self.layout.addWidget(self.welcome_label)  #Add to layout
+        # Close the database connection
+        conn.close()
 
-        self.deposit_input = QLineEdit()  #Input field for deposit
-        self.deposit_input.setPlaceholderText("Enter deposit amount")  #Set placeholder
-        self.layout.addWidget(self.deposit_input)  #Add to layout
+        # If no winnings data is available across all games
+        if not all_rows:
+            # Show an information message
+            QMessageBox.information(self, "No Data", "No winnings data available across games.")
+            # Exit the method
+            return
 
-        deposit_button = QPushButton("Deposit")  #Create deposit button
-        deposit_button.clicked.connect(self.handle_deposit)  #Bind event
-        self.layout.addWidget(deposit_button)  #Add to layout
+        # Sort all collected rows by session number
+        all_rows.sort(key=lambda x: x[0])
+        # Initialize lists for session numbers and cumulative winnings
+        session_numbers = []
+        cumulative = []
+        # Initialize total winnings
+        total = 0
 
-        self.start_button = QPushButton("Enter Casino")  #Create start button
-        self.start_button.setEnabled(False)  #Disable initially
-        self.start_button.clicked.connect(self.go_to_main_menu)  #Bind event
-        self.layout.addWidget(self.start_button)  #Add to layout
+        # Iterate through sorted session data
+        for session, net in all_rows:
+            # Add net winnings to the total
+            total += net
+            # Append the current cumulative total
+            cumulative.append(total)
+            # Append the session number
+            session_numbers.append(session)
 
-    def handle_deposit(self):  #Handle deposit logic
+        # Create a new QWidget for the graph window
+        self.graph_window = QWidget()
+        # Set the title of the graph window
+        self.graph_window.setWindowTitle("Total Net Winnings - All Games")
+        # Set the size and position of the graph window
+        self.graph_window.setGeometry(150, 150, 600, 400)
+
+        # Create a vertical layout for the graph window
+        layout = QVBoxLayout()
+        # Set the layout for the graph window
+        self.graph_window.setLayout(layout)
+
+        # Create a Matplotlib figure
+        fig = Figure(figsize=(5, 4))
+        # Create a FigureCanvas to embed the figure in the GUI
+        canvas = FigureCanvas(fig)
+        # Add a subplot to the figure
+        ax = fig.add_subplot(111)
+        # Plot the cumulative net winnings with markers
+        ax.plot(session_numbers, cumulative, marker='o', color='purple')
+        # Set the title of the chart
+        ax.set_title("Cumulative Net Winnings - All Games")
+        # Set the label for the x-axis
+        ax.set_xlabel("Session Number")
+        # Set the label for the y-axis
+        ax.set_ylabel("Net Winnings ($)")
+        # Enable grid lines on the plot
+        ax.grid(True)
+        # Set x-axis ticks to match session numbers
+        ax.set_xticks(session_numbers)
+
+        # Create a QLabel to display the total net winnings
+        label = QLabel(f"Total Net Winnings: ${total:.2f}")
+        # Center-align the label text
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        # Add the canvas to the layout
+        layout.addWidget(canvas)
+        # Add the total winnings label to the layout
+        layout.addWidget(label)
+
+        # Ensure the widget is deleted when closed to free up resources
+        self.graph_window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        # Show the graph window
+        self.graph_window.show()
+
+# Define the DepositWindow class inheriting from QWidget
+class DepositWindow(QWidget):
+    # Constructor for DepositWindow
+    def __init__(self, player_id, full_name):
+        # Initialize QWidget parent class
+        super().__init__()
+        # Set the window title
+        self.setWindowTitle("Deposit")
+        # Set the window size and position
+        self.setGeometry(300, 300, 350, 250)
+        # Store the player ID
+        self.player_id = player_id
+        # Store the player's full name
+        self.full_name = full_name
+
+        # Create a vertical layout
+        self.layout = QVBoxLayout()
+        # Set the layout for the window
+        self.setLayout(self.layout)
+
+        # Create a welcome label displaying the player's name
+        self.welcome_label = QLabel(f"Welcome {self.full_name}!")
+        # Add the welcome label to the layout
+        self.layout.addWidget(self.welcome_label)
+
+        # Create a QLineEdit for deposit amount input
+        self.deposit_input = QLineEdit()
+        # Set placeholder text for the deposit input field
+        self.deposit_input.setPlaceholderText("Enter deposit amount")
+        # Add the deposit input field to the layout
+        self.layout.addWidget(self.deposit_input)
+
+        # Create a deposit button
+        deposit_button = QPushButton("Deposit")
+        # Connect the deposit button's clicked signal to the handle_deposit method
+        deposit_button.clicked.connect(self.handle_deposit)
+        # Add the deposit button to the layout
+        self.layout.addWidget(deposit_button)
+
+        # Create a button to enter the casino
+        self.start_button = QPushButton("Enter Casino")
+        # Disable the start button initially
+        self.start_button.setEnabled(False)
+        # Connect the start button's clicked signal to the go_to_main_menu method
+        self.start_button.clicked.connect(self.go_to_main_menu)
+        # Add the start button to the layout
+        self.layout.addWidget(self.start_button)
+
+    # Method to handle the deposit action
+    def handle_deposit(self):
         try:
-            amount = float(self.deposit_input.text())  #Convert text to float
-            if amount < 0:  #Negative amounts not allowed
+            # Convert the text in the deposit input field to a float
+            amount = float(self.deposit_input.text())
+            # If the amount is negative, raise a ValueError
+            if amount < 0:
                 raise ValueError
-
-            conn = sqlite3.connect(DB_PATH)  #Connect to DB
-            cur = conn.cursor()  #Create cursor
-            cur.execute("SELECT balance FROM PLAYERS WHERE ID=?", (self.player_id,))  #Fetch current balance
-            result = cur.fetchone()  #Store result
-            if not result:  #No match
-                QMessageBox.warning(self, "Error", "Player not found.")  #Show error
-                conn.close()  #Close connection
+            # Connect to the SQLite database
+            conn = sqlite3.connect(DB_PATH)
+            # Create a cursor object
+            cur = conn.cursor()
+            # Execute a query to get the player's current balance
+            cur.execute("SELECT balance FROM PLAYERS WHERE ID=?", (self.player_id,))
+            # Fetch the result
+            result = cur.fetchone()
+            # If player not found
+            if not result:
+                # Show a warning message
+                QMessageBox.warning(self, "Error", "Player not found.")
+                # Close the database connection
+                conn.close()
+                # Exit the method
                 return
+            # Calculate the new balance after deposit
+            new_balance = result[0] + amount
+            # Update the player's balance in the PLAYERS table
+            cur.execute("UPDATE PLAYERS SET balance=? WHERE ID=?", (new_balance, self.player_id))
+            # Commit the changes to the database
+            conn.commit()
+            # Close the database connection
+            conn.close()
+            # Enable the start button after successful deposit
+            self.start_button.setEnabled(True)
+        # Catch any exceptions (e.g., ValueError for non-numeric input)
+        except:
+            # Show a warning message for invalid input
+            QMessageBox.warning(self, "Invalid Input", "Please enter a valid number.")
 
-            new_balance = result[0] + amount  #Calculate new balance
-            cur.execute("UPDATE PLAYERS SET balance=? WHERE ID=?", (new_balance, self.player_id))  #Update record
-            conn.commit()  #Commit changes
-            conn.close()  #Close DB
+    # Method to navigate to the main menu
+    def go_to_main_menu(self):
+        # Import MainMenu class (done here to avoid circular import if MainMenu imports DepositWindow)
+        from Casino_Full_Game import MainMenu
+        # Create an instance of the MainMenu
+        self.main_menu = MainMenu(self.player_id)
+        # Show the main menu window
+        self.main_menu.show()
+        # Close the current DepositWindow
+        self.close()
 
-            QMessageBox.information(self, "Deposit Successful", f"You deposited ${amount:.2f}")  #Success message
-            self.start_button.setEnabled(True)  #Enable casino entry
-
-        except:  #If any error occurs
-            QMessageBox.warning(self, "Invalid Input", "Enter a valid number.")  #Show error
-
-    def go_to_main_menu(self):  #Launch main menu
-        self.main_menu = MainMenu(self.player_id)  #Create menu instance
-        self.main_menu.show()  #Show menu
-        self.close()  #Close deposit window
-
-
-if __name__ == "__main__":  #If this script is the main entry
-    app = QApplication(sys.argv)  #Create Qt application
-    login = LoginMenu()  #Launch login window
-    login.show()  #Display login window
-    sys.exit(app.exec())  #Start application event loop
+# Only launch the application if the script is run directly (not imported as a module)
+if __name__ == "__main__":
+    # Create a QApplication instance
+    app = QApplication(sys.argv)
+    # Create an instance of the LoginMenu
+    login = LoginMenu()
+    # Show the login menu window
+    login.show()
+    # Start the application's event loop
+    sys.exit(app.exec())
