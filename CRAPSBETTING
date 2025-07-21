@@ -1,0 +1,169 @@
+    def place_bet(self):
+        try:
+            amt = float(self.bet_input.text())
+            if amt <= 0 or amt > self.balance:
+                raise ValueError
+        except ValueError:
+            QMessageBox.warning(self, "Invalid Bet", "Enter a valid amount within your balance.")
+            return
+
+        self.bet = amt
+        self.bet_type = self.bet_type_combo.currentText()
+        self.balance -= self.bet
+        self.total_bets += 1
+        self.update_balance_label()
+        self.log(f"Bet ${self.bet:.2f} on {self.bet_type}")
+        self.roll_button.setEnabled(True)
+
+
+    def roll_dice(self):
+        d1 = random.randint(1, 6)
+        d2 = random.randint(1, 6)
+        total = d1 + d2
+        self.update_dice_images(d1, d2)
+        self.resolve_bet(total, d1, d2)
+
+
+    def resolve_bet(self, total, d1, d2):
+        """Evaluate each bet type, pay out or lose, then finish the round."""
+        mult      = 1
+        won_round = None
+        msg       = ""
+
+        # Pass Line
+        if self.bet_type == "Pass Line":
+            if self.point is None:
+                if total in (7, 11):
+                    won_round = True;  msg = "Pass Line wins!"
+                elif total in (2, 3, 12):
+                    won_round = False; msg = "Craps! Pass Line loses."
+                else:
+                    self.point = total
+                    self.log(f"Point is now {self.point}")
+                    return
+            else:
+                if total == self.point:
+                    won_round = True;  msg = "Point hit! Pass Line wins."
+                    self.point = None
+                elif total == 7:
+                    won_round = False; msg = "Seven‑out. Pass Line loses."
+                    self.point = None
+                else:
+                    return
+
+        # Don't Pass
+        elif self.bet_type == "Don't Pass":
+            if self.point is None:
+                if total in (2, 3):
+                    won_round = True;  msg = "Don't Pass wins!"
+                elif total == 12:
+                    won_round = None;  msg = "Push on 12."
+                    self.balance += self.bet
+                elif total in (7, 11):
+                    won_round = False; msg = "Don't Pass loses."
+                else:
+                    self.point = total
+                    self.log(f"Point is now {self.point}")
+                    return
+            else:
+                if total == self.point:
+                    won_round = False; msg = "Point hit. Don't Pass loses."
+                    self.point = None
+                elif total == 7:
+                    won_round = True;  msg = "Seven‑out! Don't Pass wins."
+                    self.point = None
+                else:
+                    return
+
+        # Field
+        elif self.bet_type == "Field":
+            if total in (3, 4, 9, 10, 11):
+                won_round = True;  msg = "Field bet wins 1:1!"; mult = 1
+            elif total in (2, 12):
+                won_round = True;  msg = "Field bet wins 2:1!"; mult = 2
+            else:
+                won_round = False; msg = "Field bet loses."
+
+        # Any 7
+        elif self.bet_type == "Any 7":
+            if total == 7:
+                won_round = True;  msg = "Any 7 wins 4:1!"; mult = 4
+            else:
+                won_round = False; msg = "Any 7 loses."
+
+        # Craps
+        elif self.bet_type == "Craps":
+            if total in (2, 3, 12):
+                won_round = True;  msg = "Craps wins 7:1!"; mult = 7
+            else:
+                won_round = False; msg = "Craps loses."
+
+        # Hard 4
+        elif self.bet_type == "Hard 4":
+            if total == 4 and d1 == d2:
+                won_round = True;  msg = "Hard 4 hits! Pays 7:1"; mult = 7
+            elif total == 4 and d1 != d2:
+                won_round = False; msg = "Easy 4 hit. Hard 4 loses."
+            elif total == 7:
+                won_round = False; msg = "Seven‑out. Hard 4 loses."
+            else:
+                self.log(f"{total} no decision; roll again for Hard 4.")
+                return
+
+        # Hard 6
+        elif self.bet_type == "Hard 6":
+            if total == 6 and d1 == d2:
+                won_round = True;  msg = "Hard 6 hits! Pays 9:1"; mult = 9
+            elif total == 6 and d1 != d2:
+                won_round = False; msg = "Easy 6 hit. Hard 6 loses."
+            elif total == 7:
+                won_round = False; msg = "Seven‑out. Hard 6 loses."
+            else:
+                self.log(f"{total} no decision; roll again for Hard 6.")
+                return
+
+        # Hard 8
+        elif self.bet_type == "Hard 8":
+            if total == 8 and d1 == d2:
+                won_round = True;  msg = "Hard 8 hits! Pays 9:1"; mult = 9
+            elif total == 8 and d1 != d2:
+                won_round = False; msg = "Easy 8 hit. Hard 8 loses."
+            elif total == 7:
+                won_round = False; msg = "Seven‑out. Hard 8 loses."
+            else:
+                self.log(f"{total} no decision; roll again for Hard 8.")
+                return
+
+        # Big 6 & 8
+        elif self.bet_type == "Big 6 & 8":
+            if total in (6, 8):
+                won_round = True;  msg = "Big 6 & 8 wins 1:1!"; mult = 1
+            else:
+                won_round = False; msg = "Big 6 & 8 loses."
+
+        # Apply result
+        if won_round is True:
+            self.win(msg, multiplier=mult)
+            self.games_won += 1
+        elif won_round is False:
+            self.log(msg)
+            self.games_lost += 1
+        else:
+            self.log(msg)
+
+        self.finish_round()
+
+
+    def win(self, message, multiplier=1):
+        payout = self.bet * (1 + multiplier)
+        self.balance += payout
+        self.winnings += self.bet * multiplier
+        self.log(message)
+
+
+    def finish_round(self):
+        self.roll_button.setEnabled(False)
+        self.update_balance_label()
+        self.save_user()
+        if self.balance <= 0:
+            QMessageBox.information(self, "Game Over", "You are out of money.")
