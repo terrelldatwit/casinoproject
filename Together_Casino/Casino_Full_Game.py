@@ -37,6 +37,8 @@ from roulette import RouletteGame
 from craps import Craps
 # Import Blackjack for the blackjack game (Tkinter GUI)
 from blackjack import Blackjack
+# Import HighLowGame for the High/Low game
+from highlow import HighLowGame
 
 # Define the path to the SQLite database
 DB_PATH = "CasinoDB.db"
@@ -80,6 +82,13 @@ class MainMenu(QWidget):
         # Add the blackjack button to the layout
         layout.addWidget(btn_blackjack)
 
+        # Create a button for playing High/Low
+        btn_highlow = QPushButton("Play High/Low")
+        # Connect the button's clicked signal to the launch_highlow method
+        btn_highlow.clicked.connect(self.launch_highlow)
+        # Add the High/Low button to the layout
+        layout.addWidget(btn_highlow)
+
         # Create a button to view total net winnings
         btn_net = QPushButton("View Net Winnings")
         # Connect the button's clicked signal to the plot_total_net_winnings method
@@ -121,6 +130,14 @@ class MainMenu(QWidget):
         self.hide()
         # Create an instance of the Blackjack game, passing player ID and self (MainMenu) as parent
         self.blackjack_game = Blackjack(self.player_id, self) # Keep reference to the game instance
+
+    # Method to launch the High/Low game
+    def launch_highlow(self):
+        # Hide the MainMenu BEFORE launching High/Low
+        self.hide()
+        # Create an instance of the HighLowGame, passing player ID and self (MainMenu) as parent
+        self.highlow_game = HighLowGame(self.player_id, self) # Keep reference to the game instance
+        # Note: HighLowGame handles its own mainloop if it's Tkinter, or just shows itself if PyQt6.
 
     # Method to handle cashing out when exiting the casino
     def cash_out_on_exit(self):
@@ -217,8 +234,8 @@ class MainMenu(QWidget):
         # Initialize a list to store all rows of winnings data
         all_rows = []
 
-        # Iterate through a list of game names
-        for game in ["Roulette", "Craps", "Blackjack", "Poker", "Slots", "HighLow"]:
+        # Iterate through a list of game names (added "HighLow")
+        for game in ["Roulette", "Craps", "Blackjack", "HighLow"]: # Updated games list
             try:
                 # Execute a query to select session data for the current game and player
                 cur.execute(f"""
@@ -229,7 +246,7 @@ class MainMenu(QWidget):
                 rows = cur.fetchall()
                 # Extend the all_rows list with calculated net winnings for each session
                 all_rows.extend([
-                    (session, money_won - bet_amount)
+                    (session, money_won - bet_amount) # Assuming money_won is net winnings, bet_amount is total bet
                     for session, money_won, bet_amount in rows if session is not None
                 ])
             # Catch OperationalError if the table for a game does not exist
@@ -271,7 +288,7 @@ class MainMenu(QWidget):
         # Set the size and position of the graph window
         self.graph_window.setGeometry(150, 150, 600, 400)
 
-        # Create a vertical layout for the graph window
+        # Create vertical layout for the graph window
         layout = QVBoxLayout()
         # Set the layout for the graph window
         self.graph_window.setLayout(layout)
