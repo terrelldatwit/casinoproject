@@ -86,10 +86,10 @@ class HighLowGame(QWidget):
 
         # Session tracking variables for database logging (per game launch)
         self.session_number = self.get_next_session_number() # Get a new session number for this launch
-        self.total_winnings_session = 0.0 # Total net winnings for this entire game launch
+        self.total_winnings_session = 0.0 # Total cashed-out winnings for this entire game launch
         self.total_bets_session = 0.0 # Total money bet in this game launch
-        self.wins_session = 0 # Total rounds won in this game launch
-        self.losses_session = 0 # Total rounds lost in this game launch
+        self.wins_session = 0 # Total rounds won in this game launch (for cheater detection)
+        self.losses_session = 0 # Total rounds lost in this game launch (for cheater detection)
         self.session_history = [] # Stores win/loss (True/False) for cheater detection
 
         # Initialize self.graph_window to None, it will be assigned when plot_net_winnings is called
@@ -401,7 +401,7 @@ class HighLowGame(QWidget):
         # Update balance display
         self.update_balance_label()
         # Accumulate total bets for the session
-        self.total_bets_session += bet
+        self.total_bets_session += bet # This is total money put into the game
 
         # Check for reshuffle before drawing the next card
         self.check_and_shuffle_deck()
@@ -460,7 +460,7 @@ class HighLowGame(QWidget):
             self.status_label.setText(f"Rolled: {new_card}. Winner! Streak: {self.cards_dealt_in_streak}. Current Winnings: ${self.cashout:.2f}")
             self.cashout_button.setEnabled(True) # Enable cashout button
             self.wins_session += 1 # Increment total wins for this game launch
-            self.total_winnings_session += current_winnings_from_bet # Accumulate total winnings for session
+            # self.total_winnings_session += current_winnings_from_bet # REMOVED: Winnings only added on cashout
             self.session_history.append(True) # Record win for cheater detection
             self.last_card = new_card # Continue streak: new card becomes the last card
             # Guess buttons remain enabled for the next guess in the streak
@@ -514,7 +514,7 @@ class HighLowGame(QWidget):
             QMessageBox.information(self, "Cash Out", f"You've cashed out ${self.cashout:.2f}!")
 
             # Add cashed out amount to session's total winnings
-            self.total_winnings_session += self.cashout
+            self.total_winnings_session += self.cashout # Now this correctly accumulates only cashed out money
 
             # Reset streak-related variables after cashout
             self.cashout = 0.0
@@ -597,10 +597,10 @@ class HighLowGame(QWidget):
                     WHERE player_name = ? AND session_number = ?
                 """, (
                     self.wins_session + self.losses_session, # total rounds played in this session
-                    self.total_bets_session,
+                    self.total_bets_session, # total money bet
                     self.wins_session,
                     self.losses_session,
-                    self.total_winnings_session,
+                    self.total_winnings_session, # This now correctly represents cashed-out winnings
                     self.full_name,
                     self.session_number
                 ))
@@ -615,7 +615,7 @@ class HighLowGame(QWidget):
                     self.total_bets_session,
                     self.wins_session,
                     self.losses_session,
-                    self.total_winnings_session,
+                    self.total_winnings_session, # This now correctly represents cashed-out winnings
                     self.session_number
                 ))
             # Commit the changes to the database
@@ -640,6 +640,7 @@ class HighLowGame(QWidget):
     def plot_net_winnings(self):
         try:
             # Execute query to fetch session data for plotting
+            # We need money_won (cashed out) and bet_amount (total money bet for the session)
             self.cur.execute("""
                 SELECT session_number, money_won, bet_amount FROM HighLow
                 WHERE player_name=? ORDER BY session_number
@@ -652,20 +653,21 @@ class HighLowGame(QWidget):
                 QMessageBox.information(self, "No Data", "No winnings history available for this player.")
                 return
 
-            # Initialize lists for cumulative winnings and session numbers
-            cumulative = []
+            # Initialize lists for cumulative net winnings and session numbers
+            cumulative_net_winnings = []
             session_numbers = []
-            total = 0.0 # Overall total net winnings
+            current_total_net = 0.0 # Overall total net winnings for plotting
 
             # Iterate through fetched rows
-            for session_num, money_won, bet_amount in rows:
+            for session_num, cashed_out_money, total_bet_for_session in rows:
                 # Ensure session number is not None
                 if session_num is not None:
-                    # Assuming 'money_won' column already stores the net winnings for the session
-                    # If it stores gross winnings, you might need to adjust (money_won - bet_amount)
-                    net = money_won
-                    total += net # Add to overall total
-                    cumulative.append(total) # Add to cumulative list
+                    # Calculate net for this session: cashed_out_money - total_bet_for_session
+                    # This assumes bet_amount in the DB represents the total amount bet in that session
+                    # and money_won represents the total cashed out for that session.
+                    net_for_session = cashed_out_money - total_bet_for_session
+                    current_total_net += net_for_session # Add to overall cumulative total
+                    cumulative_net_winnings.append(current_total_net) # Add to cumulative list
                     session_numbers.append(int(session_num)) # Add session number
 
             # Create a new QWidget for the graph window and store it as an instance variable
@@ -686,8 +688,8 @@ class HighLowGame(QWidget):
             canvas = FigureCanvas(fig)
             # Add a subplot to the figure
             ax = fig.add_subplot(111)
-            # Plot the cumulative winnings
-            ax.plot(session_numbers, cumulative, marker='o', color='orange')
+            # Plot the cumulative net winnings
+            ax.plot(session_numbers, cumulative_net_winnings, marker='o', color='orange')
             # Set chart title
             ax.set_title("Cumulative Net Winnings - High/Low")
             # Set x-axis label
@@ -699,8 +701,8 @@ class HighLowGame(QWidget):
             # Set x-axis ticks
             ax.set_xticks(session_numbers)
 
-            # Create label for total net winnings
-            total_label = QLabel(f"Total Net Winnings: ${total:.2f}")
+            # Create label for total net winnings (final value)
+            total_label = QLabel(f"Total Net Winnings: ${current_total_net:.2f}")
             # Center-align the label
             total_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
