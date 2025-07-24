@@ -442,9 +442,3 @@ class Poker(QWidget):
         self.vbox.addWidget(self.label_win)
 
         self.setLayout(self.vbox)
-        
-
-app = QApplication([])
-poker = Poker(1056)
-poker.show()
-sys.exit(app.exec())
