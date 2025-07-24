@@ -41,6 +41,8 @@ from blackjack import Blackjack
 from highlow import HighLowGame
 # Import SlotsGame for the Slots game (New import)
 from slots import SlotsGame
+# Import Poker and card for the poker game
+from poker import Poker, card
 
 # Define the path to the SQLite database
 DB_PATH = "CasinoDB.db"
@@ -91,6 +93,13 @@ class MainMenu(QWidget):
         # Add the High/Low button to the layout
         layout.addWidget(btn_highlow)
 
+        # Create a button for playing High/Low
+        btn_poker = QPushButton("Play Poker")
+        # Connect the button's clicked signal to the launch_highlow method
+        btn_poker.clicked.connect(self.launch_poker))
+        # Add the High/Low button to the layout
+        layout.addWidget(btn_poker)
+
         # Create a button for playing Slots (New button)
         btn_slots = QPushButton("Play Slots")
         # Connect the button's clicked signal to the launch_slots method
@@ -98,6 +107,7 @@ class MainMenu(QWidget):
         # Add the Slots button to the layout
         layout.addWidget(btn_slots)
 
+        
         # Create a button to view total net winnings
         btn_net = QPushButton("View Net Winnings")
         # Connect the button's clicked signal to the plot_total_net_winnings method
@@ -146,6 +156,12 @@ class MainMenu(QWidget):
         self.hide()
         # Create an instance of the HighLowGame, passing player ID and self (MainMenu) as parent
         self.highlow_game = HighLowGame(self.player_id, self) # Keep reference to the game instance
+
+    def launch_poker(self):
+        # Hide the MainMenu BEFORE launching Poker
+        self.hide()
+        # Create an instance of a Poker game, passing player ID and self (MainMenu) as parent
+        self.poker_game = Poker(self.player_id, self)
 
     # Method to launch the Slots game (New method)
     def launch_slots(self):
