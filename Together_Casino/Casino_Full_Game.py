@@ -39,11 +39,12 @@ from craps import Craps
 from blackjack import Blackjack
 # Import HighLowGame for the High/Low game
 from highlow import HighLowGame
-# Import SlotsGame for the Slots game (New import)
+# Import SlotsGame for the Slots game
 from slots import SlotsGame
-# Import Poker and card for the poker game
+# Import Poker for the Poker game (NEW IMPORT)
+from poker import Poker 
 
-# Define the path to the SQLite database
+# Define the database path
 DB_PATH = "CasinoDB.db"
 
 # Define the MainMenu class inheriting from QWidget
@@ -58,6 +59,10 @@ class MainMenu(QWidget):
         self.setGeometry(300, 300, 300, 250)
         # Store player ID
         self.player_id = player_id
+
+        # Fetch the player's full name based on player_id
+        self.full_name = self.fetch_player_name(player_id)
+
 
         # Create a vertical layout for the main menu
         layout = QVBoxLayout()
@@ -91,15 +96,21 @@ class MainMenu(QWidget):
         btn_highlow.clicked.connect(self.launch_highlow)
         # Add the High/Low button to the layout
         layout.addWidget(btn_highlow)
-        
-        # Create a button for playing Slots (New button)
+
+        # Create a button for playing Slots
         btn_slots = QPushButton("Play Slots")
         # Connect the button's clicked signal to the launch_slots method
         btn_slots.clicked.connect(self.launch_slots)
         # Add the Slots button to the layout
         layout.addWidget(btn_slots)
 
-        
+        # Create a button for playing Poker (NEW BUTTON)
+        btn_poker = QPushButton("Play Poker")
+        # Connect the button's clicked signal to the launch_poker method
+        btn_poker.clicked.connect(self.launch_poker)
+        # Add the Poker button to the layout
+        layout.addWidget(btn_poker)
+
         # Create a button to view total net winnings
         btn_net = QPushButton("View Net Winnings")
         # Connect the button's clicked signal to the plot_total_net_winnings method
@@ -116,6 +127,19 @@ class MainMenu(QWidget):
 
         # Apply the created layout to the window
         self.setLayout(layout)
+
+    # Method to fetch the player's full name from the database
+    def fetch_player_name(self, player_id):
+        try:
+            with sqlite3.connect(DB_PATH) as conn:
+                conn.execute("PRAGMA journal_mode=WAL")
+                cur = conn.cursor()
+                cur.execute("SELECT first_name || ' ' || last_name FROM PLAYERS WHERE ID=?", (player_id,))
+                result = cur.fetchone()
+                return result[0] if result else str(player_id)
+        except Exception as e:
+            print(f"Error fetching player name: {e}")
+            return str(player_id)
 
     # Method to launch the Roulette game
     def launch_roulette(self):
@@ -149,12 +173,20 @@ class MainMenu(QWidget):
         # Create an instance of the HighLowGame, passing player ID and self (MainMenu) as parent
         self.highlow_game = HighLowGame(self.player_id, self) # Keep reference to the game instance
 
-    # Method to launch the Slots game (New method)
+    # Method to launch the Slots game
     def launch_slots(self):
         # Hide the MainMenu BEFORE launching Slots
         self.hide()
         # Create an instance of the SlotsGame, passing player ID and self (MainMenu) as parent
         self.slots_game = SlotsGame(self.player_id, self) # Keep reference to the game instance
+
+    # Method to launch the Poker game (NEW METHOD)
+    def launch_poker(self):
+        # Hide the MainMenu BEFORE launching Poker
+        self.hide()
+        # Create an instance of the Poker game, passing player ID and self (MainMenu) as parent
+        self.poker_game = Poker(self.player_id, self) # Keep reference to the game instance
+        self.poker_game.show() # Show the Poker game window
 
     # Method to handle cashing out when exiting the casino
     def cash_out_on_exit(self):
@@ -227,119 +259,106 @@ class MainMenu(QWidget):
         # Close the current MainMenu window
         self.close()
 
-    # Method to plot total net winnings across all games
+    # Method to plot total net winnings across all games for the logged-in player
     def plot_total_net_winnings(self):
         # Connect to the SQLite database
         conn = sqlite3.connect(DB_PATH)
         # Create a cursor object
         cur = conn.cursor()
-        # Fetch the player's full name from the PLAYERS table
-        cur.execute("SELECT first_name || ' ' || last_name FROM PLAYERS WHERE ID=?", (self.player_id,))
-        # Fetch the result
-        name_row = cur.fetchone()
-        # If player name not found
-        if not name_row:
-            # Show an information message
-            QMessageBox.information(self, "Error", "Player name not found.")
-            # Close the database connection
-            conn.close()
-            # Exit the method
-            return
 
-        # Get the player's name
-        player_name = name_row[0]
-        # Initialize a list to store all rows of winnings data
-        all_rows = []
+        # Get the player's full name for querying game tables
+        player_name = self.full_name
 
-        # Iterate through a list of game names (added "HighLow" and "Slots")
-        for game in ["Roulette", "Craps", "Blackjack", "HighLow", "Slots"]: # Updated games list
+        # List of game tables to query for winnings data
+        # Ensure these table names match your database exactly
+        game_tables = ["Blackjack", "Craps", "HighLow", "Poker", "Roulette", "Slots"]
+
+        # Initialize a list to store all individual session net winnings
+        all_session_nets = []
+
+        # Iterate through each game table
+        for game_table in game_tables:
             try:
-                # Execute a query to select session data for the current game and player
+                # Query for money_won and bet_amount for the current player in this game table
+                # We fetch both to consistently calculate net winnings as (money_won - bet_amount)
+                # regardless of how 'money_won' was stored (gross or net profit/loss).
                 cur.execute(f"""
-                    SELECT session_number, money_won, bet_amount FROM {game}
-                    WHERE player_name=? ORDER BY session_number ASC
+                    SELECT money_won, bet_amount FROM {game_table}
+                    WHERE player_name=?
                 """, (player_name,))
-                # Fetch all matching rows
                 rows = cur.fetchall()
-                # Extend the all_rows list with calculated net winnings for each session
-                all_rows.extend([
-                    (session, money_won - bet_amount) # Assuming money_won is net winnings, bet_amount is total bet
-                    for session, money_won, bet_amount in rows if session is not None
-                ])
-            # Catch OperationalError if the table for a game does not exist
+
+                # Calculate net winnings for each session in this game and add to the list
+                for money_won, bet_amount in rows:
+                    # Net winnings = money_won (total returned/won) - bet_amount (total risked/lost)
+                    net_for_session = money_won - bet_amount
+                    all_session_nets.append(net_for_session)
             except sqlite3.OperationalError:
-                # Continue to the next game if the table is missing
+                # If a table doesn't exist (e.g., Poker might not be fully implemented yet), skip it
+                print(f"Table {game_table} not found or accessible. Skipping.")
+                continue
+            except Exception as e:
+                print(f"Error fetching data from {game_table}: {e}")
                 continue
 
         # Close the database connection
         conn.close()
 
-        # If no winnings data is available across all games
-        if not all_rows:
-            # Show an information message
-            QMessageBox.information(self, "No Data", "No winnings data available across games.")
-            # Exit the method
+        # If no winnings data is available across all games for the player
+        if not all_session_nets:
+            QMessageBox.information(self, "No Data", "No total winnings history available for this player across all games.")
             return
 
-        # Sort all collected rows by session number
-        all_rows.sort(key=lambda x: x[0])
-        # Initialize lists for session numbers and cumulative winnings
-        session_numbers = []
-        cumulative = []
-        # Initialize total winnings
-        total = 0
+        # Calculate cumulative net winnings
+        cumulative_winnings = []
+        current_sum = 0.0
+        for net_value in all_session_nets:
+            current_sum += net_value
+            cumulative_winnings.append(current_sum)
 
-        # Iterate through sorted session data
-        for session, net in all_rows:
-            # Add net winnings to the total
-            total += net
-            # Append the current cumulative total
-            cumulative.append(total)
-            # Append the session number
-            session_numbers.append(session)
+        # Generate session numbers for plotting (simple sequential numbers for the cumulative plot)
+        session_numbers = list(range(1, len(cumulative_winnings) + 1))
 
         # Create a new QWidget for the graph window
+        # Store it as an instance variable to prevent premature garbage collection
         self.graph_window = QWidget()
-        # Set the title of the graph window
-        self.graph_window.setWindowTitle("Total Net Winnings - All Games")
-        # Set the size and position of the graph window
-        self.graph_window.setGeometry(150, 150, 600, 400)
+        self.graph_window.setWindowTitle(f"Total Net Winnings - {player_name}")
+        self.graph_window.setGeometry(150, 150, 800, 500) # Adjusted size for better visibility
 
         # Create vertical layout for the graph window
         layout = QVBoxLayout()
-        # Set the layout for the graph window
         self.graph_window.setLayout(layout)
 
         # Create a Matplotlib figure
-        fig = Figure(figsize=(5, 4))
-        # Create a FigureCanvas to embed the figure in the GUI
+        fig = Figure(figsize=(8, 6)) # Adjusted figure size for better readability
         canvas = FigureCanvas(fig)
-        # Add a subplot to the figure
         ax = fig.add_subplot(111)
-        # Plot the cumulative net winnings with markers
-        ax.plot(session_numbers, cumulative, marker='o', color='purple')
-        # Set the title of the chart
-        ax.set_title("Cumulative Net Winnings - All Games")
-        # Set the label for the x-axis
-        ax.set_xlabel("Session Number")
-        # Set the label for the y-axis
+
+        # Plot the cumulative net winnings
+        ax.plot(session_numbers, cumulative_winnings, marker='o', linestyle='-', color='blue')
+        ax.set_title(f"Cumulative Net Winnings Across All Games for {player_name}")
+        ax.set_xlabel("Session Number (across all games)")
         ax.set_ylabel("Net Winnings ($)")
-        # Enable grid lines on the plot
         ax.grid(True)
-        # Set x-axis ticks to match session numbers
-        ax.set_xticks(session_numbers)
+        # Set x-axis ticks to show all session numbers if not too many, otherwise a subset
+        if len(session_numbers) <= 20:
+            ax.set_xticks(session_numbers)
+        else:
+            # Show ticks for every 5th or 10th session if many sessions for readability
+            step = max(1, len(session_numbers) // 10)
+            ax.set_xticks(session_numbers[::step])
 
-        # Create a QLabel to display the total net winnings
-        label = QLabel(f"Total Net Winnings: ${total:.2f}")
-        # Center-align the label
-        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # Add the canvas to the layout
+        # Create label for total net winnings (final value of the cumulative sum)
+        total_label = QLabel(f"Overall Net Winnings: ${cumulative_winnings[-1]:.2f}")
+        total_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        total_label.setStyleSheet("font-size: 18px; font-weight: bold; margin-top: 10px;")
+
+        # Add canvas and label to layout
         layout.addWidget(canvas)
-        # Add the total winnings label to the layout
-        layout.addWidget(label)
+        layout.addWidget(total_label)
 
-        # Ensure the widget is deleted when closed to free up resources
+        # Ensure widget is deleted when closed to free up resources
         self.graph_window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         # Show the graph window
         self.graph_window.show()
@@ -399,7 +418,8 @@ class DepositWindow(QWidget):
             amount = float(self.deposit_input.text())
             # If the amount is negative, raise a ValueError
             if amount < 0:
-                raise ValueError
+                QMessageBox.warning(self, "Invalid Amount", "Amount must be greater than 0.")
+                return
             # Connect to the SQLite database
             conn = sqlite3.connect(DB_PATH)
             # Create a cursor object
@@ -427,9 +447,12 @@ class DepositWindow(QWidget):
             # Enable the start button after successful deposit
             self.start_button.setEnabled(True)
         # Catch any exceptions (e.g., ValueError for non-numeric input)
-        except:
+        except ValueError:
             # Show a warning message for invalid input
             QMessageBox.warning(self, "Invalid Input", "Please enter a valid number.")
+        except Exception as e:
+            QMessageBox.critical(self, "Database Error", f"An error occurred during deposit: {e}")
+
 
     # Method to navigate to the main menu
     def go_to_main_menu(self):
