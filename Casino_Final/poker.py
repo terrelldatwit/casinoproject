@@ -1,4 +1,3 @@
-
 # IMPORTS
 import sys # Used for system-specific parameters and functions, e.g., exiting the application
 import random # Used for shuffling the deck and dealing cards randomly
@@ -698,8 +697,8 @@ class Poker(QMainWindow): # Changed to QMainWindow for consistency with other ga
 
     def save_user(self):
         """
-        Saves the current game state (player balance) and session statistics (bets, wins, losses, net winnings)
-        for the Poker game to the database.
+        Saves the current game state (player balance) and session statistics (bets, wins, money_won)
+        for the Poker game to the database, without a 'losses' column.
         It updates an existing session entry or inserts a new one.
         """
         try:
@@ -717,14 +716,12 @@ class Poker(QMainWindow): # Changed to QMainWindow for consistency with other ga
                     SET number_of_bets = ?,
                         bet_amount = ?,
                         wins = ?,
-                        losses = ?,
                         money_won = ?
                     WHERE player_name = ? AND session_number = ?
                 """, (
                     self.wins_session + self.losses_session, # total rounds played in this session
                     self.total_bets_session, # total money bet in this session
                     self.wins_session, # total wins for this session
-                    self.losses_session, # total losses for this session
                     self.total_winnings_session, # This is the accumulated net profit/loss for the session
                     self.full_name, # player's full name
                     self.session_number # current session number
@@ -732,14 +729,13 @@ class Poker(QMainWindow): # Changed to QMainWindow for consistency with other ga
             # If no entry exists, insert a new one
             else:
                 self.cursor.execute("""
-                    INSERT INTO Poker (player_name, number_of_bets, bet_amount, wins, losses, money_won, session_number)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO Poker (player_name, number_of_bets, bet_amount, wins, money_won, session_number)
+                    VALUES (?, ?, ?, ?, ?, ?)
                 """, (
                     self.full_name,
                     self.wins_session + self.losses_session,
                     self.total_bets_session,
                     self.wins_session,
-                    self.losses_session,
                     self.total_winnings_session, # This is the accumulated net profit/loss for the session
                     self.session_number
                 ))
@@ -783,8 +779,8 @@ class Poker(QMainWindow): # Changed to QMainWindow for consistency with other ga
             # Iterate through fetched rows to calculate cumulative net winnings
             for session_num, money_won_from_db, bet_amount in rows:
                 if session_num is not None: # Ensure session number is valid
-                    # Calculate net winnings for this session (money_won - bet_amount)
-                    net_for_session = money_won_from_db - bet_amount
+                    # Calculate net winnings for this session (money_won is already net)
+                    net_for_session = money_won_from_db
                     current_total_net += net_for_session # Add to the running total
                     cumulative_net_winnings.append(current_total_net) # Append cumulative total
                     session_numbers.append(int(session_num)) # Append session number
