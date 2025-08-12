@@ -46,6 +46,8 @@ from slots import SlotsGame
 from poker import Poker 
 # Import the CasinoAdminPanel
 from casino_admin import CasinoAdminPanel
+# --- ADDED CODE: Import the stats update function ---
+from update_stats import update_player_stats
 
 
 # Define the database path
@@ -173,6 +175,22 @@ class MainMenu(QWidget):
 
         # Apply the created layout to the window
         self.setLayout(layout)
+
+    # --- ADDED CODE: This method now runs the update before showing the menu ---
+    def show(self):
+        """
+        Overrides the default show method to refresh player stats from the
+        database before displaying the menu. This ensures the data is
+        always up-to-date when returning from a game.
+        """
+        print("---")
+        print("Returning to Main Menu. Refreshing player statistics...")
+        # Call the update function from update_stats.py
+        update_player_stats()
+        print("Statistics refreshed. Displaying Main Menu.")
+        print("---")
+        # Call the original QWidget.show() method to make the window visible
+        super(MainMenu, self).show()
 
     # Method to display the rules for all games
     def show_game_rules(self):
